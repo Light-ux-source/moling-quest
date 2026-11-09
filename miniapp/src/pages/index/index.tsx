@@ -1,199 +1,302 @@
-import { useEffect, useState } from 'react'
-import { View, Text, Textarea } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
-import { createSession, health, loadRecentSessions, pushRecentSession, RecentSession } from '../../services/api'
-import { LEVEL_META, QuestionType, Level } from '../../types'
+import { useCallback, useRef, useState } from 'react'
+import { View, Text } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import PageShell from '../../components/PageShell'
+import Mascot from '../../components/Mascot'
+import Icon from '../../components/Icon'
+import StarRating from '../../components/StarRating'
+import ProgressBar from '../../components/ProgressBar'
+import ErrorCard from '../../components/ErrorCard'
+import { useSafeArea } from '../../hooks/useSafeArea'
+import { IS_WEAPP } from '../../config'
+import { createSession, getChapters, getProfile, health, pushRecentSession } from '../../services/api'
+import type { ChapterSummary, Profile } from '../../types'
+import { ALL_TYPES } from '../../types'
+import { estimateMinutes, greeting, starText, topicShort } from '../../utils/format'
 import './index.css'
 
-const EXAMPLES = [
-  'React Hooks 的 useEffect 依赖数组',
-  '期权定价的 Black-Scholes 直觉',
-  '细胞呼吸的三个阶段',
-  '唐诗格律里的平仄规则'
-]
+function isGenerating(status?: string | null): boolean {
+  return !!status && ['queued', 'searching', 'digesting', 'generating'].includes(status)
+}
 
-const TYPE_OPTIONS: Array<{ key: QuestionType; label: string }> = [
-  { key: 'single_choice', label: '单选' },
-  { key: 'multiple_choice', label: '多选' },
-  { key: 'true_false', label: '判断' },
-  { key: 'short_answer', label: '简答' }
-]
-
-const COUNTS = [3, 5, 8]
+function heroCopy(chapter?: ChapterSummary) {
+  if (!chapter) {
+    return {
+      eyebrow: "TODAY'S PATH · 第一章",
+      title: '从第一个知识点开始',
+      desc: '输入一个知识点，AI 会检索资料并出题。',
+      cta: '造一条新路',
+      action: 'create' as const
+    }
+  }
+  if (isGenerating(chapter.status)) {
+    return {
+      eyebrow: "TODAY'S PATH · 正在造关",
+      title: chapter.title,
+      desc: 'AI 正在检索资料、提炼要点并出题，通常需要 10–40 秒。',
+      cta: '查看进度',
+      action: 'generating' as const
+    }
+  }
+  if (chapter.status === 'failed') {
+    return {
+      eyebrow: "TODAY'S PATH · 未完成",
+      title: chapter.title,
+      desc: '这次没长出来，点进去再试一次，不会消耗新的额度。',
+      cta: '重新生成',
+      action: 'generating' as const
+    }
+  }
+  if (chapter.status === 'completed') {
+    const accuracy = Math.round((chapter.accuracy || 0) * 100)
+    return {
+      eyebrow: "TODAY'S PATH · 本章已完成",
+      title: chapter.title,
+      desc: `正确率 ${accuracy}% · ${starText(chapter.stars)}，去报告看看下一步学什么。`,
+      cta: '回顾这一章',
+      action: 'report' as const
+    }
+  }
+  return {
+    eyebrow: "TODAY'S PATH · 继续闯关",
+    title: chapter.title,
+    desc: `已生成 ${chapter.progress.total ? chapter.question_count : chapter.question_count} 题，${
+      chapter.next_title ? `下一关：${chapter.next_title}` : '继续完成这一章'
+    }。`,
+    cta: '继续闯关',
+    action: 'map' as const
+  }
+}
 
 export default function Index() {
-  const router = useRouter()
-  const [topic, setTopic] = useState('')
-  const [level, setLevel] = useState<Level>('basic')
-  const [count, setCount] = useState(5)
-  const [types, setTypes] = useState<QuestionType[]>(['single_choice', 'multiple_choice', 'true_false', 'short_answer'])
-  const [submitting, setSubmitting] = useState(false)
-  const [recent, setRecent] = useState<RecentSession[]>([])
-  const [mode, setMode] = useState<string>('')
+  const { top } = useSafeArea()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [chapters, setChapters] = useState<ChapterSummary[]>([])
+  const [mode, setMode] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [dailyLoading, setDailyLoading] = useState(false)
+  const loadedOnce = useRef(false)
 
-  useEffect(() => {
-    setRecent(loadRecentSessions())
-    const preset = router.params?.topic
-    if (preset) setTopic(decodeURIComponent(preset).slice(0, 200))
-    health()
-      .then((res) => setMode(res.mode))
-      .catch(() => setMode('offline'))
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [profileData, chapterData, healthData] = await Promise.all([
+        getProfile(),
+        getChapters(4),
+        health().catch(() => null)
+      ])
+      setProfile(profileData)
+      setChapters(chapterData.items || [])
+      setMode(healthData?.mode || '')
+      setError('')
+    } catch (err) {
+      setError((err as Error).message || '加载失败，请重试')
+    } finally {
+      setLoading(false)
+      loadedOnce.current = true
+    }
   }, [])
 
-  const toggleType = (key: QuestionType) => {
-    setTypes((prev) => {
-      if (prev.includes(key)) {
-        if (prev.length === 1) {
-          Taro.showToast({ title: '至少保留一种题型', icon: 'none' })
-          return prev
-        }
-        return prev.filter((t) => t !== key)
-      }
-      return [...prev, key]
-    })
-  }
+  useDidShow(() => {
+    load()
+  })
 
-  const handleStart = async () => {
-    const value = topic.trim()
-    if (value.length < 2) {
-      Taro.showToast({ title: '先输入想学习的知识点', icon: 'none' })
+  const standardChapters = chapters.filter((c) => c.kind !== 'daily')
+  const mainChapter =
+    standardChapters.find((c) => isGenerating(c.status)) ||
+    standardChapters.find((c) => c.status === 'ready') ||
+    standardChapters.find((c) => c.status === 'failed') ||
+    standardChapters[0]
+  const copy = heroCopy(mainChapter)
+  const streak = profile?.streak_days || 0
+
+  const openMain = () => {
+    if (!mainChapter) {
+      Taro.navigateTo({ url: '/pages/create/index' })
       return
     }
-    if (submitting) return
-    setSubmitting(true)
-    Taro.showLoading({ title: '正在创建…', mask: true })
+    if (copy.action === 'create') {
+      Taro.navigateTo({ url: '/pages/create/index' })
+      return
+    }
+    if (copy.action === 'generating') {
+      Taro.navigateTo({ url: `/pages/generating/index?sessionId=${mainChapter.session_id}` })
+      return
+    }
+    if (copy.action === 'report') {
+      Taro.navigateTo({ url: `/pages/report/index?sessionId=${mainChapter.session_id}` })
+      return
+    }
+    Taro.navigateTo({ url: `/pages/map/index?chapterId=${mainChapter.id}` })
+  }
+
+  const openChapter = (chapter: ChapterSummary) => {
+    if (isGenerating(chapter.status) || chapter.status === 'failed') {
+      Taro.navigateTo({ url: `/pages/generating/index?sessionId=${chapter.session_id}` })
+      return
+    }
+    Taro.navigateTo({ url: `/pages/map/index?chapterId=${chapter.id}` })
+  }
+
+  const handleDaily = async () => {
+    if (dailyLoading) return
+    setDailyLoading(true)
+    const topic = (mainChapter ? `${mainChapter.topic} · 常见误区` : '雾林拾遗 · 常见常识').slice(0, 200)
     try {
       const session = await createSession({
-        topic: value,
-        level,
-        question_count: count,
-        types
+        topic,
+        level: 'basic',
+        question_count: 3,
+        types: ALL_TYPES,
+        kind: 'daily'
       })
-      setRecent(pushRecentSession({ id: session.id, topic: value, level, createdAt: Date.now() }))
-      Taro.hideLoading()
-      Taro.navigateTo({
-        url: `/pages/quiz/index?sessionId=${session.id}&topic=${encodeURIComponent(value)}`
+      pushRecentSession({
+        id: session.id,
+        chapterId: session.chapter_id || undefined,
+        topic,
+        level: 'basic',
+        status: session.status,
+        createdAt: Date.now()
       })
+      Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
-      Taro.hideLoading()
-      const message = (err as Error).message || '创建失败，请重试'
-      Taro.showToast({ title: message, icon: 'none', duration: 2500 })
+      Taro.showToast({ title: (err as Error).message || '创建失败，请重试', icon: 'none' })
     } finally {
-      setSubmitting(false)
+      setDailyLoading(false)
     }
   }
 
-  const openRecent = (item: RecentSession) => {
-    Taro.navigateTo({
-      url: `/pages/quiz/index?sessionId=${item.id}&topic=${encodeURIComponent(item.topic)}`
-    })
-  }
+  const renderSkeleton = () => (
+    <>
+      <View className='skeleton home-skeleton-hero' />
+      <View className='skeleton home-skeleton-row' />
+      <View className='skeleton home-skeleton-row' />
+    </>
+  )
 
   return (
-    <View className='page index-page'>
-      <View className='hero'>
-        <View className='hero-eyebrow'>AI LEARNING COACH</View>
-        <View className='hero-title'>
-          想学什么，
-          <Text className='hero-accent'>AI 现场出题</Text>
-        </View>
-        <View className='hero-sub'>检索资料 · 生成题目 · 即时批改 · 输出学习报告</View>
-        <View className='hero-badges'>
-          <Text className='hero-badge'>联网检索</Text>
-          <Text className='hero-badge'>多题型</Text>
-          <Text className='hero-badge'>个性化报告</Text>
-          {mode === 'mock' && <Text className='hero-badge hero-badge-warn'>Mock 演示模式</Text>}
-        </View>
-      </View>
-
-      <View className='card topic-card'>
-        <View className='card-label'>我想学</View>
-        <Textarea
-          className='topic-input'
-          value={topic}
-          maxlength={200}
-          placeholder='输入一个具体的知识点，越具体效果越好'
-          placeholderClass='topic-placeholder'
-          onInput={(e) => setTopic(e.detail.value.slice(0, 200))}
-        />
-        <View className='row between topic-meta'>
-          <Text className='muted'>例：不要写「英语」，写「虚拟语气在条件句中的三种时态」</Text>
-          <Text className='muted topic-count'>{topic.length}/200</Text>
-        </View>
-        <View className='topic-examples'>
-          {EXAMPLES.map((item) => (
-            <View key={item} className='chip' onClick={() => setTopic(item)}>
-              {item}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View className='card options-card'>
-        <View className='section-title'>学习难度</View>
-        <View className='level-row'>
-          {(Object.keys(LEVEL_META) as Level[]).map((key) => (
-            <View
-              key={key}
-              className={`level-item ${level === key ? 'level-item-active' : ''}`}
-              onClick={() => setLevel(key)}
-            >
-              <Text className='level-label'>{LEVEL_META[key].label}</Text>
-              <Text className='level-desc'>{LEVEL_META[key].desc}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View className='section-title section-gap'>题目数量</View>
-        <View className='count-row'>
-          {COUNTS.map((n) => (
-            <View
-              key={n}
-              className={`count-item ${count === n ? 'count-item-active' : ''}`}
-              onClick={() => setCount(n)}
-            >
-              {n} 题
-            </View>
-          ))}
-        </View>
-
-        <View className='section-title section-gap'>题型</View>
-        <View className='type-row'>
-          {TYPE_OPTIONS.map((item) => (
-            <View
-              key={item.key}
-              className={`chip ${types.includes(item.key) ? 'chip-active' : ''}`}
-              onClick={() => toggleType(item.key)}
-            >
-              {item.label}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View className={`btn btn-primary start-btn ${submitting ? 'btn-disabled' : ''}`} onClick={handleStart}>
-        {submitting ? '正在创建学习会话…' : '开始出题'}
-      </View>
-      <View className='start-tip'>AI 通常需要 10～40 秒检索并生成题目</View>
-
-      {recent.length > 0 && (
-        <View className='card recent-card'>
-          <View className='row between'>
-            <View className='section-title'>最近学习</View>
-            <Text className='muted'>{recent.length} 组</Text>
+    <PageShell tabbar activeTab='home'>
+      <View className='home' style={{ paddingTop: `${top + 16}px` }}>
+        <View className={`home-hello ${IS_WEAPP ? 'weapp' : ''}`}>
+          <View className='col home-hi-col'>
+            <Text className='hi'>{greeting()}，旅人</Text>
+            <Text className='name'>今天也去雾林走走？</Text>
           </View>
-          {recent.map((item) => (
-            <View key={item.id} className='recent-item' onClick={() => openRecent(item)}>
-              <View className='recent-dot' />
-              <View className='recent-body'>
-                <View className='recent-topic'>{item.topic}</View>
-                <View className='muted'>{LEVEL_META[item.level]?.label || item.level} · 继续查看</View>
-              </View>
-              <Text className='recent-arrow'>›</Text>
+          <View className='row home-hello-right'>
+            <View className='streak'>
+              <Icon name='flame-amberdeep' size={16} />
+              <Text>{streak > 0 ? `${streak} 天` : '今天'}</Text>
             </View>
-          ))}
+            <View className='home-avatar'>
+              <Mascot pose='head' className='mascot-head' />
+            </View>
+          </View>
         </View>
-      )}
-    </View>
+
+        {error ? (
+          <ErrorCard
+            title='雾林起雾了'
+            message={error}
+            retryLabel='重新加载'
+            onRetry={load}
+            backLabel='去造关'
+            onBack={() => Taro.navigateTo({ url: '/pages/create/index' })}
+          />
+        ) : loading && !profile ? (
+          renderSkeleton()
+        ) : (
+          <>
+            <View className='hero-card rise-in' onClick={openMain}>
+              <View className='hero-copy'>
+                <View className='eyebrow-line'>{copy.eyebrow}</View>
+                <View className='hero-title'>{topicShort(copy.title, 16)}</View>
+                <View className='hero-desc'>{copy.desc}</View>
+                <View className='hero-meta'>
+                  <View className='hero-meta-chip'>
+                    <Icon name='list-paper' size={16} />
+                    <Text>{mainChapter?.question_count || 5} 题</Text>
+                  </View>
+                  <View className='hero-meta-chip'>
+                    <Icon name='clock-paper' size={16} />
+                    <Text>约 {estimateMinutes(mainChapter?.question_count || 5)} 分钟</Text>
+                  </View>
+                  <View className='hero-meta-chip'>
+                    <Text>最佳 {starText(mainChapter?.stars || 0)}</Text>
+                  </View>
+                </View>
+                <View className='hero-cta'>
+                  <Text>{copy.cta}</Text>
+                  <Icon name='arrow-right-mossdeep' size={16} />
+                </View>
+              </View>
+              <View className='hero-stars'>
+                <StarRating stars={mainChapter?.stars || 0} variant='hero' />
+              </View>
+              <Mascot pose='idle' className='mascot-hero' float />
+            </View>
+
+            {standardChapters.length > 0 && (
+              <>
+                <View className='section-row'>
+                  <Text className='section-title'>你的章节</Text>
+                  <Text
+                    className='more'
+                    onClick={() =>
+                      standardChapters.length > 2
+                        ? Taro.showToast({ title: '更多章节下一版开放', icon: 'none' })
+                        : Taro.navigateTo({ url: '/pages/create/index' })
+                    }
+                  >
+                    {standardChapters.length > 2 ? `全部 ${standardChapters.length} 个` : '造新章节'}
+                  </Text>
+                </View>
+
+                {standardChapters.slice(0, 2).map((chapter, index) => {
+                  const done = chapter.progress?.done || 0
+                  const total = chapter.progress?.total || chapter.question_count
+                  return (
+                    <View key={chapter.id} className='chapter-mini' onClick={() => openChapter(chapter)}>
+                      <View className={`chapter-icon ${index % 2 === 0 ? 'chapter-icon-moss' : 'chapter-icon-amber'}`}>
+                        <Icon
+                          name={index % 2 === 0 ? 'chapter-data-mossdeep' : 'chapter-cache-amberdeep'}
+                          size={24}
+                        />
+                      </View>
+                      <View className='chapter-mini-body'>
+                        <View className='chapter-mini-top'>
+                          <Text className='chapter-mini-title'>{topicShort(chapter.title, 14)}</Text>
+                          {chapter.status === 'completed' && <Text className='tag tag-seal'>已通关</Text>}
+                        </View>
+                        <Text className='chapter-mini-desc'>
+                          {done} / {total} 关
+                          {chapter.next_title ? ` · 下一关：${chapter.next_title}` : ' · 已完成'}
+                        </Text>
+                        <ProgressBar value={done} max={total || 1} size='sm' tone={index % 2 === 0 ? 'moss' : 'amber'} />
+                      </View>
+                      <Icon name='chevron-right-ink3' size={18} />
+                    </View>
+                  )
+                })}
+              </>
+            )}
+
+            <View className='daily-strip' onClick={handleDaily}>
+              <View className='daily-icon'>
+                <Icon name='leaf-moss' size={24} />
+              </View>
+              <View className='grow'>
+                <Text className='daily-title'>今日挑战 · 雾林拾遗</Text>
+                <Text className='daily-desc'>3 题 · 全对得 30 经验</Text>
+              </View>
+              <Text className='daily-go'>{dailyLoading ? '准备中…' : '去挑战'}</Text>
+            </View>
+
+            {mode === 'mock' && <View className='mock-note'>Mock 演示模式 · 题目为本地模拟数据</View>}
+          </>
+        )}
+        <View className='home-bottom-space' />
+      </View>
+    </PageShell>
   )
 }

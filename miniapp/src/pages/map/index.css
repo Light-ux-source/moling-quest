@@ -1,0 +1,185 @@
+/* S02 章节地图 */
+.map-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.map-title-k {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+.map-title-t {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.leaf-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 3px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 8px 20px;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--moss-deep);
+}
+
+.map-canvas-wrap {
+  padding: 16px 40px 0;
+}
+.map-canvas {
+  position: relative;
+  height: 940px;
+  margin-top: 4px;
+  border-radius: 52px;
+  overflow: hidden;
+  background:
+    radial-gradient(440px 320px at 78% 18%, rgba(243, 217, 164, 0.5) 0%, transparent 70%),
+    linear-gradient(180deg, #eaf0e4 0%, #dde7df 55%, #cbdccf 100%);
+  border: 2px solid rgba(62, 102, 80, 0.12);
+}
+.map-path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.map-node-wrap {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 3;
+}
+.map-node {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 700;
+  box-shadow: 0 12px 0 rgba(35, 40, 31, 0.16);
+}
+.map-node.done {
+  background: var(--moss);
+  color: var(--card);
+}
+.map-node.current {
+  background: var(--amber);
+  color: #3a2809;
+  box-shadow: 0 0 0 14px rgba(224, 162, 60, 0.24), 0 12px 0 #b97423;
+}
+.map-node.locked {
+  background: #e6e0d0;
+  color: #a8a190;
+  border: 3px dashed #bdb6a4;
+  box-shadow: none;
+}
+.map-node.unlocked {
+  background: var(--amber-2);
+  color: var(--amber-deep);
+  border: 3px solid var(--amber);
+  box-shadow: 0 0 0 10px rgba(224, 162, 60, 0.18);
+}
+.map-node.final {
+  width: 112px;
+  height: 112px;
+  box-shadow: 0 0 0 8px rgba(62, 102, 80, 0.12), 0 12px 0 rgba(35, 40, 31, 0.16);
+}
+.map-node.final.current {
+  box-shadow: 0 0 0 8px rgba(224, 162, 60, 0.24), 0 0 0 18px rgba(224, 162, 60, 0.1), 0 12px 0 #b97423;
+}
+.map-label {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  color: var(--ink-2);
+  background: rgba(255, 253, 246, 0.88);
+  padding: 4px 16px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  border: 2px solid rgba(35, 40, 31, 0.08);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-mascot {
+  position: absolute;
+  left: 50%;
+  top: -112px;
+  transform: translateX(-50%);
+  width: 156px;
+  height: 156px;
+  z-index: 4;
+  pointer-events: none;
+}
+.map-fog {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -60px;
+  height: 240px;
+  background: radial-gradient(closest-side, rgba(255, 253, 246, 0.85), rgba(255, 253, 246, 0));
+  z-index: 2;
+  pointer-events: none;
+}
+
+.map-sheet {
+  z-index: 26;
+}
+.map-sheet-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.map-sheet-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.map-sheet-sub {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+.map-sheet-stars {
+  margin-top: 10px;
+}
+.map-start {
+  width: 100%;
+  margin-top: 28px;
+}
+.map-bottom-space {
+  height: 420px;
+}
+
+.map-skeleton {
+  padding: 24px 40px;
+}
+.map-skeleton-canvas {
+  height: 940px;
+  border-radius: 52px;
+}
+.map-skeleton-sheet {
+  height: 220px;
+  border-radius: 52px;
+  margin-top: 32px;
+}

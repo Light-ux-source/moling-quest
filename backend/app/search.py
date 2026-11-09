@@ -20,10 +20,37 @@ from .schemas import SourceItem
 
 logger = logging.getLogger(__name__)
 
+# 官方文档：rerank_score 0～3，>=1.5 为优质结果（2026-11 核实）
+MIN_RERANK_SCORE = 1.5
+
 
 def build_queries(topic: str) -> List[str]:
     topic = topic[:80]
     return [topic, f"{topic} 核心概念 原理 常见误区"]
+
+
+def filter_results(results: List[Dict[str, Any]]) -> List[SourceItem]:
+    """过滤低质来源、按 URL 去重，并裁剪到 UI 可展示的长度。"""
+    items: List[SourceItem] = []
+    seen_urls = set()
+    for raw in results:
+        score = raw.get("rerank_score")
+        if not isinstance(score, (int, float)) or score < MIN_RERANK_SCORE:
+            continue
+        url = (raw.get("url") or "")[:500]
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
+        items.append(
+            SourceItem(
+                title=(raw.get("title") or "")[:120],
+                url=url,
+                site_name=raw.get("site_name"),
+                summary=(raw.get("summary") or raw.get("snippet") or "")[:800],
+            )
+        )
+    return items
 
 
 class SearchClient:
@@ -55,20 +82,7 @@ class SearchClient:
             return []
 
         results = (resp.json() or {}).get("results") or []
-        items: List[SourceItem] = []
-        for r in results:
-            score = r.get("rerank_score")
-            if isinstance(score, (int, float)) and score < 0.6:
-                continue
-            items.append(
-                SourceItem(
-                    title=(r.get("title") or "")[:120],
-                    url=(r.get("url") or "")[:500],
-                    site_name=r.get("site_name"),
-                    summary=(r.get("summary") or r.get("snippet") or "")[:800],
-                )
-            )
-        return items
+        return filter_results(results)
 
     async def search_many(self, topic: str, per_query: int = 5) -> List[SourceItem]:
         seen: Dict[str, SourceItem] = {}

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Dict, List
 
 from .. import db
 from ..llm import LLMError, get_llm
-from ..prompts import build_grade_prompt
 from ..utils import clamp, is_blank, letters, overlap_ratio
 
 logger = logging.getLogger(__name__)
@@ -62,11 +62,15 @@ async def grade_short_answer(
 
     rubric = question.get("rubric") or question.get("correct_answer") or []
     try:
-        prompt = build_grade_prompt(question, answer_text, level)
-        result = await get_llm().chat_json(
-            task="grade",
-            system=prompt["system"],
-            user=prompt["user"],
+        result = await get_llm().run(
+            "grade",
+            {
+                "stem": question.get("stem", ""),
+                "rubric_json": json.dumps(rubric, ensure_ascii=False),
+                "correct_json": json.dumps(question.get("correct_answer"), ensure_ascii=False),
+                "answer_json": json.dumps(answer_text, ensure_ascii=False),
+                "level": level,
+            },
             context={"topic": topic, "user_answer": answer_text, "rubric": rubric},
             temperature=0.1,
             max_tokens=800,

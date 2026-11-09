@@ -1,14 +1,20 @@
 export default {
   pages: [
     'pages/index/index',
+    'pages/map/index',
     'pages/quiz/index',
-    'pages/report/index'
+    'pages/result/index',
+    'pages/report/index',
+    'pages/create/index',
+    'pages/generating/index',
+    'pages/preview/index'
   ],
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#FFFFFF',
-    navigationBarTitleText: 'AI 学习助手',
+    backgroundTextStyle: 'dark',
+    navigationStyle: 'custom',
+    navigationBarBackgroundColor: '#F7F2E4',
+    navigationBarTitleText: '墨灵闯关',
     navigationBarTextStyle: 'black',
-    backgroundColor: '#F5F6FA'
+    backgroundColor: '#F7F2E4'
   }
 }

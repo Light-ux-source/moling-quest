@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     min_question_count: int = 3
     max_question_count: int = 10
     rate_limit_per_hour: int = 30
+    monthly_quota: int = 10
 
     # ---- 成本估算（元 / 百万 token，按高峰价保守估算）----
     cost_input_per_m: float = 2.0

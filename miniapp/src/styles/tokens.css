@@ -1,0 +1,208 @@
+/* 墨灵闯关 · 设计令牌（750 设计稿，代码中的 px 会被 Taro 转成 rpx / rem）
+   原型 1px == 本文件 2px == 750 设计稿 2rpx。 */
+
+page,
+body {
+  /* color */
+  --paper: #f7f2e4;
+  --paper-2: #efe6d1;
+  --card: #fffdf6;
+  --ink: #23281f;
+  --ink-2: #4e564a;
+  --ink-3: #626a5c;
+  --moss: #3e6650;
+  --moss-deep: #2b4a39;
+  --moss-light: #dbe7dc;
+  --celadon: #9dbfb0;
+  --amber: #e0a23c;
+  --amber-2: #f3d9a4;
+  --amber-deep: #a96f1f;
+  --vermilion: #bf5b42;
+  --mist: #dde7df;
+  --line: rgba(35, 40, 31, 0.14);
+  --line-strong: rgba(35, 40, 31, 0.32);
+
+  /* type */
+  --font-hand: "Ma Shan Zheng", "STKaiti", "KaiTi", "Songti SC", serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  /* space (prototype × 2) */
+  --s-1: 8px;
+  --s-2: 16px;
+  --s-3: 24px;
+  --s-4: 32px;
+  --s-5: 40px;
+  --s-6: 48px;
+  --s-8: 64px;
+  --s-10: 80px;
+  --s-12: 96px;
+
+  /* shape */
+  --radius-s: 24px;
+  --radius-m: 40px;
+  --radius-l: 56px;
+  --radius-xl: 80px;
+  --radius-pill: 999px;
+  --border-width: 3px;
+  --shadow-s: 0 4px 0 rgba(35, 40, 31, 0.08);
+  --shadow-m: 0 28px 60px -40px rgba(35, 40, 31, 0.5);
+  --shadow-l: 0 64px 120px -72px rgba(35, 40, 31, 0.55);
+
+  /* motion */
+  --dur-tap: 140ms;
+  --dur-fast: 200ms;
+  --dur-base: 240ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --safe-top: 0px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+page {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  background-color: #f7f2e4;
+  color: #23281f;
+  font-family: var(--font-serif);
+}
+
+image {
+  display: block;
+}
+
+/* 纸张氛围：宣纸 + 三处柔和光斑 */
+.page-shell {
+  position: relative;
+  min-height: 100vh;
+  max-width: 1040px;
+  margin: 0 auto;
+  overflow-x: hidden;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(1100px 520px at 8% -8%, #fff9e9 0%, rgba(255, 249, 233, 0) 62%),
+    radial-gradient(900px 520px at 104% 4%, rgba(157, 191, 176, 0.38) 0%, rgba(157, 191, 176, 0) 58%),
+    radial-gradient(700px 460px at 50% 120%, rgba(224, 162, 60, 0.13) 0%, rgba(224, 162, 60, 0) 60%);
+  background-attachment: fixed;
+}
+
+.page-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 通用布局 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.row.top {
+  align-items: flex-start;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.muted {
+  color: var(--ink-3);
+  font-size: 24px;
+}
+
+.hand {
+  font-family: var(--font-hand);
+  color: var(--moss);
+}
+
+.serif {
+  font-family: var(--font-serif);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.page-pad {
+  padding: 24px 40px 0;
+}
+
+.page-bottom {
+  height: 200px;
+}
+
+.tap {
+  transition: transform var(--dur-tap) ease-out, background var(--dur-tap) ease-out,
+    box-shadow var(--dur-tap) ease-out;
+}
+
+.tap:active {
+  transform: translateY(3px);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

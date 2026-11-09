@@ -1,136 +1,23 @@
-page {
-  --bg: #f5f6fa;
-  --card: #ffffff;
-  --ink: #16181d;
-  --ink-2: #5b6270;
-  --ink-3: #9aa0ab;
-  --line: #eceef4;
-  --brand: #4f46e5;
-  --brand-2: #7c3aed;
-  --brand-soft: #eef0ff;
-  --ok: #10b981;
-  --ok-soft: #e8f8f1;
-  --warn: #f59e0b;
-  --warn-soft: #fef6e7;
-  --bad: #ef4444;
-  --bad-soft: #fdeeee;
-  --radius: 28px;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro SC', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 28px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
+@import "./styles/tokens.css";
+@import "./styles/noise.css";
+@import "./styles/components.css";
+
+/* 全局：H5 也使用纸色底，避免切换瞬间白闪 */
+html,
+body,
+#app {
+  min-height: 100%;
+  background-color: #f7f2e4;
 }
 
-.page {
-  min-height: 100vh;
-  padding: 32px 28px 60px;
-  box-sizing: border-box;
+/* Taro H5 容器 */
+.taro_page,
+.taro_router {
+  background-color: var(--paper);
 }
 
-.card {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 32px;
-  box-shadow: 0 12px 32px rgba(22, 24, 29, 0.06);
-  box-sizing: border-box;
-}
-
-.section-title {
-  font-size: 30px;
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 16px;
-}
-
-.muted {
-  color: var(--ink-3);
-  font-size: 24px;
-}
-
-.divider {
-  height: 1px;
-  background: var(--line);
-  margin: 24px 0;
-}
-
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 96px;
-  border-radius: 999px;
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--ink);
-  background: #fff;
-  border: 2px solid var(--line);
-  transition: opacity 0.15s ease;
-}
-
-.btn-primary {
-  color: #fff;
-  border: none;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.28);
-}
-
-.btn:active {
-  opacity: 0.86;
-}
-
-.btn-disabled {
-  opacity: 0.45;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 22px;
-  border-radius: 999px;
-  background: #f2f3f8;
-  color: var(--ink-2);
-  font-size: 25px;
-  margin: 0 14px 14px 0;
-}
-
-.chip-active {
-  background: var(--brand-soft);
-  color: var(--brand);
-  font-weight: 600;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 16px;
-  border-radius: 8px;
-  font-size: 22px;
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-.badge-ok {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-
-.badge-bad {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-
-.badge-warn {
-  background: var(--warn-soft);
-  color: #b45309;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-}
-
-.between {
-  justify-content: space-between;
+/* 修复 iOS 输入框内阴影 */
+input,
+textarea {
+  font-family: var(--font-serif);
 }

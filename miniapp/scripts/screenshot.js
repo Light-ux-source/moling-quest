@@ -1,118 +1,169 @@
 /**
- * 视觉验收脚本：起一个 ready 会话和一个已完成会话，截取三个核心页面。
- * 运行：node scripts/screenshot.js  （需先启动后端 8000 与静态服务 10087）
+ * 视觉验收截图：S01–S08，375×812，2x。
+ * 运行：
+ *   1) 后端 8000 已启动
+ *   2) SQLITE_PATH=../backend/data/app.db ../backend/.venv/bin/python scripts/seed_demo.py --reset
+ *   3) npm run build:h5 && python3 scripts/serve_h5.py dist-h5 10087
+ *   4) node scripts/screenshot.js
  */
 const fs = require('fs')
+const os = require('os')
 const path = require('path')
 const { chromium } = require('playwright-core')
 
-const API = process.env.API_BASE || 'http://127.0.0.1:8000'
 const WEB = process.env.WEB_BASE || 'http://127.0.0.1:10087'
-// 可选：指定本机 Chromium 路径；不指定则使用 Playwright 自带浏览器
-const EXE = process.env.PW_CHROME
+const API = process.env.API_BASE || 'http://127.0.0.1:8000'
 const OUT = path.join(__dirname, '..', '..', 'shots')
+const SEED_FILE = path.join(__dirname, '..', '.demo-seed.json')
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function post(pathname, body) {
-  const res = await fetch(`${API}${pathname}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  if (!res.ok) throw new Error(`${pathname} -> ${res.status} ${await res.text()}`)
-  return res.json()
-}
-
-async function getJson(pathname) {
-  const res = await fetch(`${API}${pathname}`)
-  return { ok: res.ok, status: res.status, body: res.ok ? await res.json() : null }
-}
-
-async function waitReady(id) {
-  for (let i = 0; i < 60; i++) {
-    const { body } = await getJson(`/api/v1/sessions/${id}`)
-    if (body && body.status === 'ready') return body
-    if (body && body.status === 'failed') throw new Error(body.error)
-    await sleep(500)
+function resolveChrome() {
+  if (process.env.PW_CHROME && fs.existsSync(process.env.PW_CHROME)) return process.env.PW_CHROME
+  const cache = path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright')
+  if (fs.existsSync(cache)) {
+    const dir = fs.readdirSync(cache).find((name) => name.startsWith('chromium_headless_shell-'))
+    if (dir) {
+      const candidates = [
+        path.join(cache, dir, 'chrome-headless-shell-mac-arm64', 'chrome-headless-shell'),
+        path.join(cache, dir, 'chrome-headless-shell-linux64', 'chrome-headless-shell')
+      ]
+      const found = candidates.find((file) => fs.existsSync(file))
+      if (found) return found
+    }
   }
-  throw new Error('等待题目生成超时')
-}
-
-async function waitReport(id) {
-  for (let i = 0; i < 60; i++) {
-    const res = await getJson(`/api/v1/sessions/${id}/report`)
-    if (res.ok) return res.body
-    await sleep(500)
+  try {
+    return chromium.executablePath()
+  } catch (err) {
+    return undefined
   }
-  throw new Error('等待报告超时')
 }
 
 async function main() {
+  if (!fs.existsSync(SEED_FILE)) {
+    throw new Error(`缺少 ${SEED_FILE}，请先运行 scripts/seed_demo.py --reset`)
+  }
+  const seed = JSON.parse(fs.readFileSync(SEED_FILE, 'utf-8'))
   fs.mkdirSync(OUT, { recursive: true })
 
-  const ready = await post('/api/v1/sessions', {
-    topic: 'HTTP 缓存机制：强缓存与协商缓存的区别',
-    level: 'advanced',
-    question_count: 5
-  })
-  const readyDetail = await waitReady(ready.id)
-  console.log('ready session:', ready.id, readyDetail.questions.length, 'questions')
-
-  const done = await post('/api/v1/sessions', {
-    topic: 'React Hooks 的 useEffect 依赖数组',
-    level: 'basic',
-    question_count: 5
-  })
-  const doneDetail = await waitReady(done.id)
-  const answers = doneDetail.questions.map((q) => ({
-    question_id: q.id,
-    answer:
-      q.type === 'multiple_choice'
-        ? ['A', 'B']
-        : q.type === 'short_answer'
-          ? '先说明定义，再描述机制分为三步，最后给出一个适用场景。'
-          : 'A'
-  }))
-  await post(`/api/v1/sessions/${done.id}/answers`, { answers })
-  const report = await waitReport(done.id)
-  console.log('report:', report.score, report.level_tag)
-
+  const executablePath = resolveChrome()
   const browser = await chromium.launch({
-    ...(EXE && fs.existsSync(EXE) ? { executablePath: EXE } : {}),
+    ...(executablePath ? { executablePath } : {}),
     args: ['--no-sandbox']
   })
   const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 375, height: 812 },
     deviceScaleFactor: 2,
     isMobile: true,
     hasTouch: true,
     locale: 'zh-CN'
   })
+  await context.addInitScript((cid) => {
+    try {
+      localStorage.setItem('ml_client_id', JSON.stringify({ data: cid }))
+    } catch (err) {
+      /* ignore */
+    }
+  }, seed.client_id)
+  await context.route('https://fonts.googleapis.com/**', (route) => route.abort())
+  await context.route('https://fonts.gstatic.com/**', (route) => route.abort())
+
   const page = await context.newPage()
+  const errors = []
   page.on('console', (msg) => {
-    if (msg.type() === 'error') console.log('[h5 console]', msg.text())
+    const text = msg.text()
+    if (msg.type() === 'error' && !text.includes('ERR_FAILED') && !text.includes('favicon')) {
+      errors.push(text)
+    }
   })
+  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`))
 
-  await page.goto(WEB, { waitUntil: 'networkidle' })
-  await page.waitForTimeout(1000)
-  await page.screenshot({ path: path.join(OUT, 'index.png') })
-  console.log('index.png saved')
+  const shot = async (name, fullPage = false) => {
+    await page.screenshot({
+      path: path.join(OUT, name),
+      fullPage,
+      animations: 'disabled',
+      timeout: 30000
+    })
+    console.log('saved', name)
+  }
 
-  await page.goto(`${WEB}/pages/quiz/index?sessionId=${ready.id}`, { waitUntil: 'networkidle' })
+  await page.goto(WEB, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.chapter-mini', { timeout: 30000 })
+  await page.waitForTimeout(800)
+  await shot('index.png')
+
+  await page.goto(`${WEB}/#/pages/map/index?chapterId=${seed.ready_chapter}`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForSelector('.map-canvas', { timeout: 30000 })
+  await page.waitForTimeout(800)
+  await shot('map.png')
+
+  await page.goto(`${WEB}/#/pages/quiz/index?sessionId=${seed.ready_session}&startSeq=3`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForSelector('.question-stem', { timeout: 30000 })
+  await page.waitForTimeout(500)
+  const option = page.locator('.option-card').first()
+  if (await option.count()) await option.click()
+  await page.waitForTimeout(300)
+  await shot('quiz.png')
+
+  await page.goto(`${WEB}/#/pages/preview/index?sessionId=${seed.ready_session}`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForSelector('.preview-title', { timeout: 30000 })
+  await page.waitForTimeout(600)
+  await shot('preview.png')
+
+  await page.goto(`${WEB}/#/pages/result/index?sessionId=${seed.completed_session}`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForSelector('.result-title', { timeout: 60000 })
   await page.waitForTimeout(1200)
-  await page.screenshot({ path: path.join(OUT, 'quiz.png') })
-  console.log('quiz.png saved')
+  await shot('result.png')
 
-  await page.goto(`${WEB}/pages/report/index?sessionId=${done.id}`, { waitUntil: 'networkidle' })
-  await page.waitForTimeout(1500)
-  await page.screenshot({ path: path.join(OUT, 'report.png'), fullPage: true })
-  console.log('report.png saved')
+  await page.goto(`${WEB}/#/pages/report/index?sessionId=${seed.completed_session}`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForSelector('.report-title', { timeout: 60000 })
+  await page.waitForTimeout(900)
+  await shot('report.png')
+  await page.locator('.page-shell').screenshot({
+    path: path.join(OUT, 'report-full.png'),
+    animations: 'disabled',
+    timeout: 30000
+  })
+  console.log('saved report-full.png')
 
+  await page.goto(`${WEB}/#/pages/create/index`, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.create-title', { timeout: 30000 })
+  await page.waitForTimeout(500)
+  await shot('create.png')
+
+  const res = await fetch(`${API}/api/v1/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Client-Id': seed.client_id },
+    body: JSON.stringify({ topic: '期权定价的直觉', level: 'basic', question_count: 5 })
+  })
+  if (!res.ok) throw new Error(`创建生成中会话失败: ${res.status}`)
+  const created = await res.json()
+  await page.goto(`${WEB}/#/pages/generating/index?sessionId=${created.id}`, {
+    waitUntil: 'load',
+    timeout: 60000
+  })
+  await page.waitForTimeout(250)
+  await shot('generating.png')
+
+  console.log('console errors:', errors.length ? errors.slice(0, 5) : 'none')
   await browser.close()
 }
 
 main().catch((err) => {
-  console.error(err)
+  console.error('SCREENSHOT ERROR:', err)
   process.exit(1)
 })

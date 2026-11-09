@@ -9,8 +9,15 @@ const injected = process.env.TARO_APP_API_BASE
 export const API_BASE = (injected && injected.trim() ? injected : FALLBACK_BASE).replace(/\/+$/, '')
 
 export const STORAGE_KEYS = {
-  recentSessions: 'lwa_recent_sessions'
+  clientId: 'ml_client_id',
+  recentSessions: 'ml_recent_sessions',
+  drafts: 'ml_quiz_drafts',
+  lastChapter: 'ml_last_chapter'
 } as const
 
 export const POLL_INTERVAL = 1200
+export const POLL_MAX_INTERVAL = 5000
 export const POLL_TIMEOUT = 120000
+
+export const IS_WEAPP = process.env.TARO_ENV === 'weapp'
+export const IS_H5 = process.env.TARO_ENV === 'h5'

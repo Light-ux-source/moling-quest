@@ -1,3 +1,3 @@
 export default {
-  navigationBarTitleText: 'AI 学习助手'
+  navigationBarTitleText: '墨灵闯关'
 }

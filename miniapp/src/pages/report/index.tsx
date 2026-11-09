@@ -1,91 +1,104 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
-import { ApiError, fetchReport, getSession, pollSession } from '../../services/api'
-import { AnswerResult, Report } from '../../types'
+import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
+import PageShell from '../../components/PageShell'
+import PageHeader from '../../components/PageHeader'
+import Icon from '../../components/Icon'
+import ProgressBar from '../../components/ProgressBar'
+import LoadingOrb from '../../components/LoadingOrb'
+import ErrorCard from '../../components/ErrorCard'
+import StarRating from '../../components/StarRating'
+import { createSession, waitForReport } from '../../services/api'
+import type { Level, Report } from '../../types'
+import { ALL_TYPES } from '../../types'
+import {
+  formatAnswer,
+  formatDate,
+  formatDuration,
+  scoreTone,
+  starText,
+  topicShort
+} from '../../utils/format'
 import './index.css'
-
-function optionText(item: AnswerResult, key: string): string {
-  const option = item.options.find((o) => o.key === key)
-  return option ? option.text : ''
-}
-
-function formatAnswer(item: AnswerResult, value: string | string[] | null): string {
-  if (value === null || value === undefined) return '未作答'
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '未作答'
-    if (item.type === 'short_answer') return value.join('；')
-    return value
-      .map((key) => {
-        const text = optionText(item, key)
-        return text ? `${key}. ${text}` : key
-      })
-      .join('\n')
-  }
-  if (!value.trim()) return '未作答'
-  if (item.type === 'short_answer') return value
-  const text = optionText(item, value)
-  return text ? `${value}. ${text}` : value
-}
-
-function formatDuration(seconds: number): string {
-  if (!seconds) return '—'
-  if (seconds < 60) return `${seconds} 秒`
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
-}
 
 export default function ReportPage() {
   const router = useRouter()
   const sessionId = router.params?.sessionId || ''
   const [report, setReport] = useState<Report | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [grading, setGrading] = useState(true)
   const [openIds, setOpenIds] = useState<string[]>([])
+  const [creating, setCreating] = useState(false)
   const alive = useRef(true)
 
-  const loadReport = async (): Promise<void> => {
+  const load = async () => {
+    if (!sessionId) {
+      setError('缺少学习会话')
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     try {
-      // 先确认批改完成，避免用 409 反复探测
-      const session = await getSession(sessionId)
-      if (session.status !== 'completed') {
-        await pollSession(sessionId)
-      }
-      const data = await fetchReport(sessionId)
+      const data = await waitForReport(sessionId)
       if (!alive.current) return
       setReport(data)
-      setGrading(false)
       setError('')
     } catch (err) {
-      if (!alive.current) return
-      setGrading(false)
-      setError((err as Error).message || (err as ApiError).message || '报告加载失败')
+      if (alive.current) setError((err as Error).message || '报告加载失败')
+    } finally {
+      if (alive.current) setLoading(false)
     }
   }
 
   useEffect(() => {
     alive.current = true
-    if (!sessionId) {
-      setError('缺少学习会话')
-      setGrading(false)
-      return
-    }
-    loadReport()
+    load()
     return () => {
       alive.current = false
     }
-  }, [])
+  }, [sessionId])
+
+  useShareAppMessage(() => ({
+    title: report ? `${report.topic} · ${report.score} 分学习诊断` : '墨灵闯关 · 学习诊断',
+    path: `/pages/report/index?sessionId=${sessionId}`
+  }))
 
   const toggle = (id: string) => {
     setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const restart = () => {
-    if (!report) return
-    Taro.reLaunch({ url: `/pages/index/index?topic=${encodeURIComponent(report.topic)}` })
+  const practice = async (topic = report?.topic || '') => {
+    if (!report || creating || !topic) return
+    setCreating(true)
+    Taro.showLoading({ title: '正在造新一组…', mask: true })
+    try {
+      const session = await createSession({
+        topic,
+        level: report.level as Level,
+        question_count: report.total,
+        types: ALL_TYPES
+      })
+      Taro.hideLoading()
+      Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
+    } catch (err) {
+      Taro.hideLoading()
+      Taro.showToast({ title: (err as Error).message || '创建失败，请重试', icon: 'none' })
+    } finally {
+      setCreating(false)
+    }
   }
 
-  const changeTopic = () => {
-    Taro.reLaunch({ url: '/pages/index/index' })
+  const share = () => {
+    if (process.env.TARO_ENV === 'weapp') {
+      Taro.showShareMenu({ withShareTicket: true })
+      Taro.showToast({ title: '点右上角分享这一页', icon: 'none' })
+      return
+    }
+    const url = typeof window !== 'undefined' ? window.location.href : ''
+    if (!url) return
+    Taro.setClipboardData({ data: url }).then(() => {
+      Taro.showToast({ title: '链接已复制', icon: 'none' })
+    })
   }
 
   const copySource = (url: string) => {
@@ -95,225 +108,243 @@ export default function ReportPage() {
     })
   }
 
-  if (grading) {
+  const changeTopic = () => Taro.navigateTo({ url: '/pages/create/index' })
+
+  if (loading) {
     return (
-      <View className='page'>
-        <View className='grading-wrap'>
-          <View className='grading-orb'>AI</View>
-          <View className='grading-title'>AI 正在批改并生成报告</View>
-          <View className='grading-sub'>客观题即时判分，简答题按得分点评估</View>
-          <View className='grading-dots'>
-            <View className='grading-dot' />
-            <View className='grading-dot' />
-            <View className='grading-dot' />
-          </View>
-        </View>
-      </View>
+      <PageShell>
+        <PageHeader back title='学习报告' />
+        <LoadingOrb title='正在批改并生成报告' subtitle='客观题即时判分，简答题按得分点评估' />
+      </PageShell>
     )
   }
 
   if (error || !report) {
     return (
-      <View className='page'>
-        <View className='card error-card'>
-          <View className='error-title'>报告加载失败</View>
-          <View className='error-text'>{error || '数据不存在'}</View>
-          <View className='btn btn-primary error-btn' onClick={() => loadReport()}>
-            重试
-          </View>
-          <View className='btn error-btn' onClick={changeTopic}>
-            回到首页
-          </View>
-        </View>
-      </View>
+      <PageShell>
+        <PageHeader back title='学习报告' />
+        <ErrorCard
+          title='报告没有长出来'
+          message={error || '数据不存在'}
+          retryLabel='重新加载'
+          onRetry={load}
+          backLabel='回首页'
+          onBack={() => Taro.reLaunch({ url: '/pages/index/index' })}
+        />
+      </PageShell>
     )
   }
 
-  const scoreClass = report.score >= 80 ? 'score-good' : report.score >= 60 ? 'score-mid' : 'score-low'
+  const tone = scoreTone(report.score)
+  const typeEntries = Object.keys(report.by_type).map((label) => ({
+    label,
+    ...report.by_type[label]
+  }))
 
   return (
-    <View className='page report-page'>
-      <View className={`report-hero ${scoreClass}`}>
-        <View className='report-topic'>{report.topic}</View>
-        <View className='score-row'>
-          <View className='score-num'>
-            {report.score}
+    <PageShell>
+      <PageHeader
+        back
+        title='学习报告'
+        right={
+          <View className='chip chip-ghost' onClick={share}>
+            <Icon name='share-ink' size={16} />
+            分享
+          </View>
+        }
+      />
+      <View className='report-body'>
+        <View className='report-meta row between'>
+          <Text className='report-date'>本次报告 · {formatDate(report.generated_at)}</Text>
+          <Text className='report-duration'>用时 {formatDuration(report.duration_sec)}</Text>
+        </View>
+        <View className='report-title'>{topicShort(report.topic, 20)}</View>
+        <View className='report-subtitle'>学习诊断</View>
+
+        <View className={`score-card ${tone}`}>
+          <View className='score-ring'>
+            <Text className='score-num'>{report.score}</Text>
             <Text className='score-unit'>分</Text>
           </View>
           <View className='score-meta'>
-            <View className='score-tag'>{report.level_tag || '已完成'}</View>
-            <View className='score-detail'>
-              答对 {report.correct}/{report.total} · 用时 {formatDuration(report.duration_sec)}
+            <View className='score-tag-row'>
+              <View className='chip chip-active'>{report.level_tag || '已完成'}</View>
+              <StarRating stars={report.settlement?.stars || 0} size='sm' />
             </View>
-            <View className='score-detail'>
-              {report.level_label} · {report.model || 'AI'}
-            </View>
+            <Text className='score-summary'>{report.summary}</Text>
+            <Text className='score-detail'>
+              答对 {report.correct}/{report.total} · 正确率 {Math.round(report.accuracy * 100)}%
+            </Text>
           </View>
         </View>
-        <View className='score-track'>
-          <View className='score-track-fill' style={{ width: `${report.score}%` }} />
-        </View>
-      </View>
 
-      <View className='card'>
-        <View className='section-title'>AI 学习诊断</View>
-        <View className='summary-text'>{report.summary}</View>
-        <View className='type-grid'>
-          {Object.keys(report.by_type).map((label) => {
-            const item = report.by_type[label]
-            const ratio = item.total ? Math.round((item.correct / item.total) * 100) : 0
-            return (
-              <View key={label} className='type-item'>
-                <View className='type-item-label'>{label}</View>
-                <View className='type-item-value'>
-                  {item.correct}/{item.total}
-                </View>
-                <View className='type-item-bar'>
-                  <View className='type-item-bar-fill' style={{ width: `${ratio}%` }} />
-                </View>
-              </View>
-            )
-          })}
-        </View>
-      </View>
-
-      <View className='card'>
-        <View className='section-title'>知识缺口</View>
-        {report.knowledge_gaps.map((gap, index) => (
-          <View key={`${gap}-${index}`} className='gap-item'>
-            <View className='gap-dot' />
-            <Text className='gap-text'>{gap}</Text>
-          </View>
-        ))}
-        {report.knowledge_gaps.length === 0 && <View className='muted'>暂无，继续保持。</View>}
-      </View>
-
-      <View className='card'>
-        <View className='section-title'>下一步怎么做</View>
-        {report.next_steps.map((step, index) => (
-          <View key={`${step}-${index}`} className='step-item'>
-            <View className='step-num'>{index + 1}</View>
-            <Text className='step-text'>{step}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View className='card'>
-        <View className='row between review-head'>
-          <View className='section-title'>逐题解析</View>
-          <Text className='muted'>点击展开</Text>
-        </View>
-        {report.items.map((item) => {
-          const open = openIds.includes(item.question_id)
-          return (
-            <View key={item.question_id} className='review-item' onClick={() => toggle(item.question_id)}>
-              <View className={`review-status ${item.is_correct ? 'review-status-ok' : 'review-status-bad'}`}>
-                {item.is_correct ? '✓' : '×'}
-              </View>
-              <View className='review-body'>
-                <View className='review-top'>
-                  <Text className='review-seq'>第 {item.seq} 题</Text>
-                  <Text className={`badge ${item.is_correct ? 'badge-ok' : 'badge-bad'}`}>
-                    {item.type_label} · {item.is_correct ? '正确' : item.score > 0 ? '部分得分' : '错误'}
+        <View className='report-card'>
+          <View className='section-title report-card-title'>分题型</View>
+          <View className='type-bars'>
+            {typeEntries.map((item) => {
+              const ratio = item.total ? (item.correct / item.total) * 100 : 0
+              return (
+                <View key={item.label} className='type-row'>
+                  <Text className='type-label'>{item.label}</Text>
+                  <View className='grow'>
+                    <ProgressBar value={ratio} max={100} size='sm' tone={ratio >= 80 ? 'moss' : 'amber'} />
+                  </View>
+                  <Text className='type-value'>
+                    {item.correct}/{item.total}
                   </Text>
                 </View>
-                <View className='review-stem'>{item.stem}</View>
+              )
+            })}
+          </View>
+        </View>
+
+        <View className='report-card report-dashed'>
+          <View className='section-title report-card-title'>知识缺口</View>
+          {report.knowledge_gaps.length > 0 ? (
+            report.knowledge_gaps.map((gap, index) => (
+              <View key={`${gap}-${index}`} className='gap-item'>
+                <View className='gap-dot' />
+                <Text className='gap-text'>{gap}</Text>
+              </View>
+            ))
+          ) : (
+            <Text className='muted'>这次没有明显缺口，继续保持。</Text>
+          )}
+        </View>
+
+        <View className='report-card report-dashed'>
+          <View className='section-title report-card-title'>下一步</View>
+          {report.next_steps.map((step, index) => (
+            <View key={`${step}-${index}`} className='step-item'>
+              <View className='step-num'>{index + 1}</View>
+              <Text className='step-text'>{step}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View className='section-row'>
+          <Text className='section-title'>逐题解析</Text>
+          <Text className='more'>点击展开</Text>
+        </View>
+        <View className='review-list'>
+          {report.items.map((item) => {
+            const open = openIds.includes(item.question_id)
+            return (
+              <View key={item.question_id} className={`review-item ${open ? 'open' : ''}`} onClick={() => toggle(item.question_id)}>
+                <View className='review-head'>
+                  <View className={`review-status ${item.is_correct ? 'ok' : 'bad'}`}>
+                    <Icon name={item.is_correct ? 'check-paper' : 'close-ink3'} size={16} />
+                  </View>
+                  <View className='grow'>
+                    <View className='review-top'>
+                      <Text className='review-seq'>第 {item.seq} 题</Text>
+                      <Text className={`tag ${item.is_correct ? 'tag-ok' : 'tag-bad'}`}>
+                        {item.type_label} · {item.is_correct ? '正确' : item.score > 0 ? '部分得分' : '错误'}
+                      </Text>
+                    </View>
+                    <Text className='review-stem'>{item.stem}</Text>
+                  </View>
+                  <Icon name={open ? 'chevron-down-ink3' : 'chevron-right-ink3'} size={18} />
+                </View>
                 {open && (
                   <View className='review-detail'>
                     <View className='answer-block'>
-                      <View className='answer-label'>你的答案</View>
-                      <View className='answer-text'>{formatAnswer(item, item.user_answer)}</View>
+                      <Text className='answer-label'>你的答案</Text>
+                      <Text className='answer-text'>{formatAnswer(item, item.user_answer)}</Text>
                     </View>
                     <View className='answer-block'>
-                      <View className='answer-label'>正确答案</View>
-                      <View className='answer-text answer-correct'>
-                        {formatAnswer(item, item.correct_answer)}
-                      </View>
+                      <Text className='answer-label'>正确答案</Text>
+                      <Text className='answer-text answer-correct'>{formatAnswer(item, item.correct_answer)}</Text>
                     </View>
                     <View className='answer-block'>
-                      <View className='answer-label'>批改反馈</View>
-                      <View className='answer-text'>{item.feedback || '—'}</View>
+                      <Text className='answer-label'>批改反馈</Text>
+                      <Text className='answer-text'>{item.feedback || '—'}</Text>
                     </View>
-                    {item.explanation && (
+                    {item.explanation ? (
                       <View className='answer-block'>
-                        <View className='answer-label'>解析</View>
-                        <View className='answer-text'>{item.explanation}</View>
+                        <Text className='answer-label'>解析</Text>
+                        <Text className='answer-text'>{item.explanation}</Text>
                       </View>
-                    )}
+                    ) : null}
                     {item.rubric.length > 0 && (
                       <View className='answer-block'>
-                        <View className='answer-label'>得分要点</View>
+                        <Text className='answer-label'>得分要点</Text>
                         {item.rubric.map((point, idx) => (
-                          <View key={`${point}-${idx}`} className='rubric-item'>
+                          <Text key={`${point}-${idx}`} className='rubric-item'>
                             · {point}
-                          </View>
+                          </Text>
                         ))}
                       </View>
                     )}
                     {item.source_refs.length > 0 && (
                       <View className='answer-block'>
-                        <View className='answer-label'>来源</View>
+                        <Text className='answer-label'>来源</Text>
                         {item.source_refs.map((url) => (
-                          <View key={url} className='source-link' onClick={() => copySource(url)}>
+                          <Text key={url} className='source-link' onClick={() => copySource(url)}>
                             {url}
-                          </View>
+                          </Text>
                         ))}
                       </View>
                     )}
                   </View>
                 )}
               </View>
-            </View>
-          )
-        })}
-      </View>
+            )
+          })}
+        </View>
 
-      {report.suggested_topics.length > 0 && (
-        <View className='card'>
-          <View className='section-title'>建议接着练</View>
-          <View className='topic-chips'>
-            {report.suggested_topics.map((topic) => (
-              <View
-                key={topic}
-                className='chip chip-active'
-                onClick={() => Taro.reLaunch({ url: `/pages/index/index?topic=${encodeURIComponent(topic)}` })}
-              >
-                {topic}
+        {report.sources.length > 0 && (
+          <View className='report-card'>
+            <View className='section-title report-card-title'>参考来源</View>
+            {report.sources.map((source, index) => (
+              <View key={`${source.title}-${index}`} className='source-item' onClick={() => copySource(source.url)}>
+                <View className='grow'>
+                  <Text className='source-title'>{source.title || '未命名来源'}</Text>
+                  <Text className='source-site'>{source.site_name || '未知站点'}</Text>
+                </View>
+                <Icon name='copy-ink3' size={16} />
               </View>
             ))}
           </View>
-        </View>
-      )}
+        )}
 
-      {report.sources.length > 0 && (
-        <View className='card'>
-          <View className='section-title'>参考来源</View>
-          {report.sources.map((source, index) => (
-            <View
-              key={`${source.title}-${index}`}
-              className='source-item'
-              onClick={() => copySource(source.url)}
-            >
-              <View className='source-title'>{source.title || '未命名来源'}</View>
-              <View className='muted'>{source.site_name || '未知站点'}</View>
+        {report.suggested_topics.length > 0 && (
+          <View className='report-card'>
+            <View className='section-title report-card-title'>建议接着练</View>
+            <View className='chip-row'>
+              {report.suggested_topics.map((topic) => (
+                <View key={topic} className='chip chip-active' onClick={() => practice(topic)}>
+                  {topic}
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-      )}
+          </View>
+        )}
 
-      <View className='report-actions'>
-        <View className='btn action-btn' onClick={changeTopic}>
-          换个主题
+        <View className='report-disclaimer'>
+          内容由 AI 生成，仅供学习参考
+          {report.model ? ` · ${report.model}` : ''}
         </View>
-        <View className='btn btn-primary action-btn action-btn-main' onClick={restart}>
-          同主题再练一组
+        <View className='report-usage'>
+          本次消耗 {report.usage.tokens_in + report.usage.tokens_out} tokens · 约 ¥
+          {Number(report.usage.cost_cny || 0).toFixed(4)}（{report.usage.note}）
         </View>
+        <View className='report-bottom-space' />
       </View>
 
-      <View className='usage-note'>
-        本次消耗 {report.usage.tokens_in + report.usage.tokens_out} tokens · 约 ¥
-        {report.usage.cost_cny.toFixed(4)}（{report.usage.note}）
+      <View className='report-footer'>
+        <View className='report-actions'>
+          <View className='btn btn-ghost report-action' onClick={changeTopic}>
+            换个主题
+          </View>
+          <View
+            className={`btn btn-primary report-action report-action-main ${creating ? 'btn-disabled' : ''}`}
+            onClick={() => practice()}
+          >
+            {creating ? '正在准备…' : '再练一组'}
+          </View>
+        </View>
       </View>
-    </View>
+    </PageShell>
   )
 }

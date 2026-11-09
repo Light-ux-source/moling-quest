@@ -3,6 +3,7 @@ import devConfig from './dev'
 import prodConfig from './prod'
 
 export default defineConfig(async (merge) => {
+  const outputRoot = process.env.TARO_ENV === 'h5' ? 'dist-h5' : 'dist'
   const baseConfig = {
     projectName: 'learning-with-ai',
     date: '2026-11-09',
@@ -14,13 +15,13 @@ export default defineConfig(async (merge) => {
       828: 1.81 / 2
     },
     sourceRoot: 'src',
-    outputRoot: process.env.TARO_ENV === 'h5' ? 'dist-h5' : 'dist',
+    outputRoot,
     plugins: [],
     defineConstants: {
       'process.env.TARO_APP_API_BASE': JSON.stringify(process.env.TARO_APP_API_BASE || '')
     },
     copy: {
-      patterns: [],
+      patterns: [{ from: 'src/assets', to: `${outputRoot}/assets` }],
       options: {}
     },
     framework: 'react',

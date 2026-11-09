@@ -4,5 +4,14 @@ httpx==0.27.2
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-multipart==0.0.9
+
+# LangChain（Prompt 编排 / LCEL / DeepSeek 官方集成）
+# 注意：LangChain 1.x 要求 Python >=3.10，且 langchain-deepseek 0.1.4
+# 目前只兼容 langchain-core 0.3.x，因此本项目锁定 0.3.x 稳定线。
+langchain-core==0.3.86
+langchain-deepseek==0.1.4
+langchain-openai==0.3.35
+openai==2.48.0
+
 pytest==8.3.3
 pytest-asyncio==0.24.0

@@ -1,0 +1,169 @@
+/* S04 关卡结算 */
+.result-body {
+  padding: 8px 40px 0;
+}
+.result-top {
+  margin-bottom: 20px;
+}
+.result-top-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.result-card {
+  position: relative;
+  background: #fdfaf1;
+  border: 3px dashed var(--line-strong);
+  border-radius: 40px;
+  padding: 40px 32px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.result-card.passed {
+  border-color: rgba(224, 162, 60, 0.55);
+  background: radial-gradient(400px 260px at 50% 0%, rgba(243, 217, 164, 0.5), transparent 70%), #fdfaf1;
+}
+.result-card.perfect {
+  border-color: rgba(169, 111, 31, 0.6);
+}
+.result-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  letter-spacing: 0.28em;
+  color: var(--ink-3);
+}
+.result-stars {
+  margin: 12px 0 4px;
+}
+.result-title {
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.result-sub {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  color: var(--ink-3);
+}
+.result-seal {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+}
+.result-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 24px;
+}
+.result-stat {
+  flex: 1;
+  min-width: 0;
+  background: var(--card);
+  border: 3px solid var(--line);
+  border-radius: 28px;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.result-stat-num {
+  font-family: var(--font-serif);
+  font-size: 38px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.result-stat-label {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  color: var(--ink-3);
+}
+.result-exp {
+  margin-top: 24px;
+  background: var(--card);
+  border: 3px solid var(--line);
+  border-radius: 36px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.result-exp-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.result-rank {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--amber-deep);
+}
+.result-exp-foot {
+  font-family: var(--font-sans);
+  font-size: 22px;
+}
+.result-unlock {
+  color: var(--moss);
+  font-weight: 600;
+}
+.result-wrong {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--card);
+  border: 3px solid var(--line);
+  border-radius: 28px;
+  padding: 24px 28px;
+}
+.result-wrong-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.result-wrong-desc {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+.result-bottom-space {
+  height: 260px;
+}
+.result-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 40px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(247, 242, 228, 0) 0%, var(--paper) 34%);
+}
+.result-actions {
+  display: flex;
+  gap: 16px;
+}
+.result-action {
+  min-height: 92px;
+  font-size: 30px;
+}
+.result-action:nth-child(1) {
+  flex: 0 0 220px;
+}
+.result-action-main {
+  flex: 1;
+}

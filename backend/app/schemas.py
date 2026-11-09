@@ -45,6 +45,8 @@ class QuestionFull(BaseModel):
     id: str
     seq: int
     type: QuestionType
+    title: str = ""
+    knowledge_point: str = ""
     stem: str
     options: List[Option] = Field(default_factory=list)
     correct_answer: Union[str, List[str]]
@@ -60,6 +62,7 @@ class QuestionPublic(BaseModel):
     id: str
     seq: int
     type: QuestionType
+    title: str = ""
     stem: str
     options: List[Option] = Field(default_factory=list)
     difficulty: str = "medium"
@@ -77,6 +80,7 @@ class SessionCreate(BaseModel):
     level: Level = "basic"
     question_count: int = Field(default=5, ge=3, le=10)
     types: Optional[List[QuestionType]] = None
+    kind: Literal["standard", "daily"] = "standard"
 
     @field_validator("topic")
     @classmethod
@@ -89,13 +93,17 @@ class SessionCreate(BaseModel):
 
 class SessionDetail(BaseModel):
     id: str
+    chapter_id: Optional[str] = None
+    parent_chapter_id: Optional[str] = None
     topic: str
     level: Level
     question_count: int
     types: List[str]
+    kind: str = "standard"
     status: SessionStatus
     stage: Optional[str] = None
     progress: int = 0
+    current_seq: int = 1
     error: Optional[str] = None
     questions: List[QuestionPublic] = Field(default_factory=list)
     sources: List[SourceItem] = Field(default_factory=list)
@@ -152,6 +160,7 @@ class ReportPayload(BaseModel):
     generated_at: str = ""
     model: Optional[str] = None
     usage: Dict[str, Any] = Field(default_factory=dict)
+    settlement: Optional[Dict[str, Any]] = None
 
 
 class HealthResponse(BaseModel):
@@ -160,3 +169,122 @@ class HealthResponse(BaseModel):
     mode: str
     model: str
     web_search: bool
+
+class ProgressUpdate(BaseModel):
+    current_seq: int = Field(..., ge=1, le=50)
+
+
+class ChapterNode(BaseModel):
+    seq: int
+    title: str
+    kind: str = "question"
+    status: str
+    stars: int = 0
+    score: float = 0.0
+    is_correct: bool = False
+    question_id: Optional[str] = None
+    chapter_id: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+class ChapterProgress(BaseModel):
+    done: int = 0
+    total: int = 0
+
+
+class ChapterDetail(BaseModel):
+    id: str
+    session_id: str
+    parent_chapter_id: Optional[str] = None
+    title: str
+    topic: str
+    level: str
+    question_count: int
+    kind: str = "standard"
+    status: str
+    error: Optional[str] = None
+    stars: int = 0
+    accuracy: float = 0.0
+    exp: int = 0
+    progress: ChapterProgress
+    current_node: int = 1
+    nodes: List[ChapterNode] = Field(default_factory=list)
+    comprehensive: Optional[ChapterNode] = None
+    sources: List[SourceItem] = Field(default_factory=list)
+    created_at: str
+    completed_at: Optional[str] = None
+
+
+class ChapterSummary(BaseModel):
+    id: str
+    session_id: str
+    title: str
+    topic: str
+    level: str
+    question_count: int = 5
+    kind: str = "standard"
+    status: Optional[str] = None
+    stars: int = 0
+    accuracy: float = 0.0
+    exp: int = 0
+    progress: ChapterProgress
+    next_title: str = ""
+    created_at: str
+    completed_at: Optional[str] = None
+
+
+class ChapterListResponse(BaseModel):
+    items: List[ChapterSummary] = Field(default_factory=list)
+
+
+class RankInfo(BaseModel):
+    key: str
+    label: str
+    exp: int
+    next_key: Optional[str] = None
+    next_label: Optional[str] = None
+    exp_to_next: int = 0
+    progress_pct: int = 0
+
+
+class QuotaInfo(BaseModel):
+    used: int = 0
+    limit: int = 10
+    remaining: int = 10
+    period: str = "month"
+
+
+class WeeklyPoint(BaseModel):
+    date: str
+    exp: int = 0
+
+
+class ProfilePayload(BaseModel):
+    client_id: str
+    nickname: str = "旅人"
+    chapters_completed: int = 0
+    total_stars: int = 0
+    total_exp: int = 0
+    leaf_count: int = 0
+    streak_days: int = 0
+    rank: RankInfo
+    quota: QuotaInfo
+    weekly: List[WeeklyPoint] = Field(default_factory=list)
+    recent_chapters: List[ChapterSummary] = Field(default_factory=list)
+
+
+class SettlementPayload(BaseModel):
+    session_id: str
+    chapter_id: Optional[str] = None
+    stars: int
+    accuracy: float
+    correct: int
+    total: int
+    exp: int
+    combo: int
+    wrong_count: int
+    duration_sec: int = 0
+    rank_before: RankInfo
+    rank_after: RankInfo
+    level_up: bool = False
+    exp_to_next: int = 0

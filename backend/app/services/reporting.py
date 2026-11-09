@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -9,8 +10,8 @@ from typing import Any, Dict, List
 from .. import db
 from ..config import get_settings
 from ..llm import LLMError, get_llm
-from ..prompts import build_report_prompt
 from ..schemas import LEVEL_LABELS, TYPE_LABELS
+from .settlement import build_settlement
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,28 @@ async def build_and_save_report(session_id: str) -> Dict[str, Any]:
     narrative = _fallback_narrative(session["topic"], session["level"], stats, items)
     model = session.get("model")
     try:
-        prompt = build_report_prompt(
-            session["topic"], session["level"], stats, items
-        )
-        result = await get_llm().chat_json(
-            task="report",
-            system=prompt["system"],
-            user=prompt["user"],
+        compact_items = [
+            {
+                "seq": it["seq"],
+                "type_label": it["type_label"],
+                "stem": it["stem"][:120],
+                "is_correct": it["is_correct"],
+                "score": it["score"],
+                "feedback": it.get("feedback", "")[:80],
+            }
+            for it in items
+        ]
+        result = await get_llm().run(
+            "report",
+            {
+                "topic": session["topic"],
+                "level": session["level"],
+                "total": stats["total"],
+                "correct": stats["correct"],
+                "accuracy_pct": f"{stats['accuracy']:.0%}",
+                "duration": _duration_sec(session),
+                "items_json": json.dumps(compact_items, ensure_ascii=False),
+            },
             context={
                 "topic": session["topic"],
                 "accuracy": stats["accuracy"],
@@ -145,6 +161,33 @@ async def build_and_save_report(session_id: str) -> Dict[str, Any]:
         logger.warning("报告生成异常，使用规则文案: %s", exc)
 
     fresh = db.get_session(session_id) or session
+    duration_sec = _duration_sec(fresh)
+    client_id = fresh.get("client_id") or "anonymous"
+    previous_exp = sum(
+        int(item.get("exp") or 0)
+        for item in db.list_completed_sessions(client_id)
+        if item.get("id") != session_id
+    )
+    settlement = build_settlement(fresh, items, previous_exp, duration_sec)
+    completed_at = db.now_iso()
+
+    db.update_session(
+        session_id,
+        stars=settlement["stars"],
+        exp=settlement["exp"],
+        accuracy=settlement["accuracy"],
+        combo=settlement["combo"],
+        completed_at=completed_at,
+    )
+    if fresh.get("chapter_id"):
+        db.update_chapter(
+            fresh["chapter_id"],
+            stars=settlement["stars"],
+            accuracy=settlement["accuracy"],
+            exp=settlement["exp"],
+            completed_at=completed_at,
+        )
+
     payload = {
         "session_id": session_id,
         "topic": session["topic"],
@@ -162,7 +205,7 @@ async def build_and_save_report(session_id: str) -> Dict[str, Any]:
         "next_steps": narrative["next_steps"],
         "suggested_topics": narrative["suggested_topics"],
         "sources": session.get("sources") or [],
-        "duration_sec": _duration_sec(fresh),
+        "duration_sec": duration_sec,
         "generated_at": db.now_iso(),
         "model": model,
         "usage": {
@@ -172,6 +215,7 @@ async def build_and_save_report(session_id: str) -> Dict[str, Any]:
             "currency": "CNY",
             "note": "按高峰价保守估算，实际以账单为准" if not settings.is_mock else "mock 模式无真实消耗",
         },
+        "settlement": settlement,
     }
     db.save_report(session_id, payload)
     return payload

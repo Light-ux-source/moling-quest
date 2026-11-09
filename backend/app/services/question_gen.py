@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -9,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from .. import db
 from ..config import get_settings
 from ..llm import LLMError, get_llm
-from ..prompts import build_digest_prompt, build_generate_prompt
+from ..prompts import LEVEL_GUIDE, TYPE_RULES
 from ..schemas import TYPE_LABELS, QuestionFull
 from ..search import get_search
 from ..utils import letters as _letters
@@ -92,10 +93,17 @@ def normalize_question(
     if difficulty not in {"easy", "medium", "hard"}:
         difficulty = "medium"
 
+    title = str(raw.get("title") or "").strip()[:24]
+    if not title:
+        title = stem[:12]
+    knowledge_point = str(raw.get("knowledge_point") or "").strip()[:40] or title
+
     return {
         "id": f"q_{session_id[-6:]}_{seq}_{uuid.uuid4().hex[:4]}",
         "seq": seq,
         "type": qtype,
+        "title": title,
+        "knowledge_point": knowledge_point,
         "stem": stem[:600],
         "options": options,
         "correct_answer": correct,
@@ -156,20 +164,22 @@ def _validate_with_schema(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return valid
 
 
+def _format_source_text(sources: List[Any]) -> str:
+    return "\n".join(
+        f"[{i + 1}] {s.title or ''}（{s.site_name or '未知站点'}）\n{s.summary or ''}"
+        for i, s in enumerate(sources[:8])
+    ) or "（本次没有检索到外部资料，请基于你已有的可靠知识作答，并在 evidence 中标注「模型知识」。）"
+
+
 async def build_knowledge_brief(topic: str, level: str, sources: List[Any]) -> Dict[str, Any]:
     llm = get_llm()
-    prompt = build_digest_prompt(
-        topic,
-        level,
-        [
-            {"title": s.title, "site_name": s.site_name, "summary": s.summary}
-            for s in sources
-        ],
-    )
-    result = await llm.chat_json(
-        task="digest",
-        system=prompt["system"],
-        user=prompt["user"],
+    result = await llm.run(
+        "digest",
+        {
+            "topic": topic,
+            "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
+            "source_text": _format_source_text(sources),
+        },
         context={"topic": topic, "sources": [s.model_dump() for s in sources]},
         temperature=0.2,
         max_tokens=1600,
@@ -218,18 +228,20 @@ async def generate_for_session(session_id: str) -> None:
             progress=68,
         )
 
-        prompt = build_generate_prompt(
-            topic,
-            level,
-            count,
-            allowed_types,
-            brief,
-            [{"url": s.url, "title": s.title} for s in sources],
-        )
-        gen_result = await llm.chat_json(
-            task="generate",
-            system=prompt["system"],
-            user=prompt["user"],
+        type_desc = "、".join(TYPE_LABELS.get(t, t) for t in allowed_types)
+        source_urls = [s.url for s in sources if s.url]
+        url_hint = "、".join(source_urls[:5]) if source_urls else "（无可用链接，source_refs 留空数组）"
+        gen_result = await llm.run(
+            "generate",
+            {
+                "topic": topic,
+                "count": count,
+                "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
+                "type_desc": type_desc,
+                "type_rules": TYPE_RULES,
+                "brief_json": json.dumps(brief, ensure_ascii=False, indent=2),
+                "url_hint": url_hint,
+            },
             context={
                 "topic": topic,
                 "count": count,

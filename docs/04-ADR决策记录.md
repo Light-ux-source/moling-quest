@@ -28,6 +28,10 @@
 | ADR-013 | 不做深色模式 | 已接受（有数据再议） | 设计 |
 | ADR-014 | 字体 CDN + 系统回退，不阻塞首屏 | 已接受 | 前端 |
 | ADR-015 | 文档单一事实来源（SSOT） | 已接受 | 工程 |
+| ADR-016 | LangChain 编排 Prompt（0.3.x + ChatDeepSeek） | 已接受 | AI/工程 |
+| ADR-017 | 一次生成=一章，5 题=5 个地图节点 | 已接受 | 产品/数据 |
+| ADR-018 | 匿名设备 ID 隔离章节/统计 | 已接受 | 架构 |
+| ADR-019 | SVG 资源文件替代 JSX 内联 SVG | 已接受 | 前端 |
 
 ---
 
@@ -192,3 +196,45 @@
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | v1.0 | 2026-11-09 | 汇总架构 7 条 + 设计/产品 8 条决策；补后果与重审条件 |
+
+---
+
+## ADR-016 LangChain 编排 Prompt（0.3.x + ChatDeepSeek）
+
+**背景**：Prompt 逐步增多（digest / generate / grade / report），需要模板化、可组合、可替换模型，并保留 JSON 解析与 token 统计。原实现用 httpx 手写请求，Prompt 是 f-string。
+
+**决策**：引入 LangChain `langchain-core 0.3.86` + `langchain-deepseek 0.1.4`，用 `ChatPromptTemplate` + LCEL 编排四条链；真实模型用 `ChatDeepSeek`，离线模式用自定义 `MockChatModel`，两条路径共用同一条链。
+
+**版本约束**：LangChain 1.x 要求 Python ≥3.10；`langchain-deepseek 0.1.4` 与 1.x 的 `langchain-core` 冲突（实测 ResolutionImpossible）。本项目当前 Python 3.9，锁定 0.3.x 稳定线；升级 Python 3.12 后可重审是否切 1.x（改用 `ChatOpenAI` 走 DeepSeek OpenAI 兼容协议）。
+
+**后果**：+ Prompt 与模型解耦、离线/真实同构、便于评测；− 多一层依赖与版本锁定；JSON 容错、空 content 重试仍由业务层兜底。
+
+---
+
+## ADR-017 一次生成 = 一章，5 题 = 5 个地图节点
+
+**背景**：原型中 S02 为 6 节点、S08 为 5 关、S03 为 3/5、S04 为 80% 正确率，存在语义冲突。
+
+**决策**：一次 AI 生成产出一个章节（5 题）；每题对应一个地图节点；第 6 节点为“章末 · 综合”，需前 5 关均 3 星后按需再生成 3 题。S03 的 5 个圆点即 5 个节点；S04 为章节结算。节点星级：答对 3 星、部分分 1 星、答错 0 星；章节星级按 60/80/100 阈值。
+
+**后果**：+ 与 S08“5 关小章节”和 S03 5 个圆点一致；+ 一次生成即可开玩；− 章末综合需要额外一次生成，作为 P1 能力。
+
+---
+
+## ADR-018 匿名设备 ID 隔离章节/统计
+
+**背景**：MVP 不做登录，但 S01/S02 的章节列表、S04 的段位、S05 的报告需要按用户隔离，不能全站共享。
+
+**决策**：前端生成 `client_id` 存本地，所有请求带 `X-Client-Id`；后端在 `sessions/chapters` 落 `client_id`，章节/统计按它过滤；`session_id` 仍是单次学习的凭证。M4 接入 openid 后把 `client_id` 迁移绑定。
+
+**后果**：+ 无登录也能有“我的章节/我的报告”；− 换设备不同步；− 清理与防刷仍需登录或配额。
+
+---
+
+## ADR-019 用 SVG 资源文件而不是 JSX 内联 SVG
+
+**背景**：原型大量使用内联 SVG（墨团、图标、地图路径）；Taro 小程序端不支持在 JSX 中直接渲染 `<svg>`，但微信 `<image>` 官方支持 JPG/PNG/SVG/WEBP/GIF。
+
+**决策**：`scripts/gen_assets.py` 从原型 SVG 生成 `src/assets/{icons,mascot,map}/*.svg`，通过 `<Image src="/assets/...">` 使用；构建时用 Taro `copy` 把资源复制到 `dist/assets` 与 `dist-h5/assets`。SVG 不使用 `<style>`、百分比单位；纸纹用 96×96 PNG base64。
+
+**后果**：+ 视觉与原型一致、双端可运行；− 图标颜色需预生成变体；− 微信 SVG 对 text/style/百分比支持有限，生成脚本已规避。
