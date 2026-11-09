@@ -57,7 +57,7 @@ class SearchClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._client = httpx.AsyncClient(
-            base_url=settings.deepseek_base_url.rstrip("/"),
+            base_url=settings.deepseek_search_base_url.rstrip("/"),
             timeout=httpx.Timeout(20.0, connect=8.0),
             headers={
                 "Authorization": f"Bearer {settings.deepseek_api_key.strip()}",
@@ -94,6 +94,16 @@ class SearchClient:
         return list(seen.values())[: self.settings.search_count * 2]
 
 
+class NoopSearchClient:
+    """真实模式但关闭联网检索：不返回任何来源（也不伪造模拟来源）。"""
+
+    async def search_many(self, topic: str, per_query: int = 5) -> List[SourceItem]:
+        return []
+
+    async def aclose(self) -> None:
+        return None
+
+
 class MockSearchClient:
     """离线模式：返回明确标注为模拟的来源，避免伪造真实链接。"""
 
@@ -124,10 +134,12 @@ def get_search() -> Any:
     global _search
     if _search is None:
         settings = get_settings()
-        if settings.enable_web_search and not settings.is_mock:
+        if settings.is_mock:
+            _search = MockSearchClient()
+        elif settings.enable_web_search:
             _search = SearchClient(settings)
         else:
-            _search = MockSearchClient()
+            _search = NoopSearchClient()
     return _search
 
 

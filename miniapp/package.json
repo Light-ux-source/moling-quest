@@ -1,6 +1,6 @@
 {
   "name": "learning-with-ai-miniapp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "AI 出题学习助手 - Taro 小程序端",
   "templateInfo": {
@@ -42,12 +42,14 @@
     "@babel/core": "^7.24.4",
     "@babel/preset-react": "^7.24.7",
     "@babel/preset-typescript": "^7.24.7",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.17",
     "@tarojs/cli": "4.3.2",
     "@tarojs/webpack5-runner": "4.3.2",
     "@types/react": "^18.3.3",
     "@types/webpack-env": "^1.18.5",
     "babel-preset-taro": "4.3.2",
     "playwright-core": "^1.65.0",
+    "react-refresh": "^0.14.2",
     "typescript": "^5.4.5",
     "webpack": "^5.91.0"
   }

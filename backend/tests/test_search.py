@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.search import build_queries, filter_results
 
 
@@ -31,3 +33,34 @@ def test_filter_results_deduplicates_urls():
     items = filter_results(raw)
     assert len(items) == 1
     assert items[0].title == "A"
+
+@pytest.mark.asyncio
+async def test_real_mode_without_web_search_returns_noop(monkeypatch):
+    from app import search
+    from app.config import get_settings
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-only")
+    monkeypatch.setenv("ENABLE_WEB_SEARCH", "false")
+    get_settings.cache_clear()
+    search._search = None
+
+    client = search.get_search()
+    assert isinstance(client, search.NoopSearchClient)
+    assert await client.search_many("HTTP 缓存") == []
+
+
+@pytest.mark.asyncio
+async def test_mock_mode_still_returns_mock_sources(monkeypatch):
+    from app import search
+    from app.config import get_settings
+
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    monkeypatch.setenv("ENABLE_WEB_SEARCH", "false")
+    get_settings.cache_clear()
+    search._search = None
+
+    client = search.get_search()
+    assert isinstance(client, search.MockSearchClient)
+    items = await client.search_many("HTTP 缓存")
+    assert items and items[0].site_name == "本地模拟"

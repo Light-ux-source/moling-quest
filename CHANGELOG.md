@@ -21,6 +21,8 @@
 - 失败原位重试、章末综合按需生成、匿名设备 `X-Client-Id` 隔离
 - **LangChain 0.3.x 编排 Prompt**：`ChatPromptTemplate` + LCEL + `ChatDeepSeek`；Mock 走同一条链
 - 真实 `ChatDeepSeek` 请求形状测试（JSON mode / thinking / temperature / usage，不联网）
+- 真实模型联调：阿里云 MaaS `deepseek-v4.1-flash-1017`（`/compatible-mode/v1`），H5 E2E PASS；单组 tokens 约 2.9k/2.1k、¥0.022–0.023
+- 独立 `DEEPSEEK_SEARCH_BASE_URL`；真实模式关闭检索时使用 `NoopSearchClient`，不伪造来源
 - 搜索来源过滤阈值改为官方推荐的 `rerank_score >= 1.5`
 - 前端 E2E/截图脚本：`scripts/e2e.js`、`scripts/screenshot.js`、`scripts/seed_demo.py`、`scripts/gen_assets.py`
 - 新文档：[docs/07-技术核实](docs/07-技术核实.md)；ADR-016～019
@@ -38,15 +40,21 @@
 - SQLite 旧库迁移（`client_id/chapter_id/current_seq/stars/exp/...`）
 - `test_api.py` 与独立测试库的初始化顺序问题
 
+### 文档
+- 新增 08 系统架构与代码地图、09 API 接口手册、10 数据模型与迁移、11 前端实现指南、12 AI 工程与 Prompt 手册、13 测试手册、14 部署与运维手册、15 故障排查与 FAQ、16 路线图与待办、17 术语表与索引
+- 重构 docs/README 为文档地图/角色阅读/职责边界/维护规则
+- 新增 `scripts/check_docs_links.py`，相对链接 196 条、0 broken
+- 版本号统一为 0.2.0（`app_version`、`package.json`）
+
 ### 质量
-- pytest **43 passed**
+- pytest **45 passed**
 - `tsc --noEmit` 通过
 - `build:weapp` / `build:h5` 通过
-- H5 E2E PASS：0 错误、0 404、375/390/768 无横向溢出
+- H5 E2E PASS（Mock + 真实模型）：0 错误、0 404、375/390/768 无横向溢出
 - S01–S08 共 9 张验收截图
 
 ### 已知问题
-- `backend/.env` 尚未填真实 Key，真实模型耗时/成本未校准
+- 官方 DeepSeek Search API 未联调（当前为阿里云 MaaS 网关，无 Search API）
 - 微信开发者工具/真机未走查
 - S09–S13、登录、配额执行、内容审核未实现
 

@@ -4,7 +4,7 @@
 >
 > 把「枯燥的被动阅读」变成「有反馈的主动回忆」。
 
-[![Tests](https://img.shields.io/badge/tests-43%20passed-3E6650)](#测试)
+[![Tests](https://img.shields.io/badge/tests-45%20passed-3E6650)](#测试)
 [![UI](https://img.shields.io/badge/UI-S01--S08%20implemented-C98A2E)](#界面)
 [![Taro](https://img.shields.io/badge/Taro-4.3.2-3E6650)](https://docs.taro.zone/docs/GETTING-STARTED)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-3E6650)](https://docs.langchain.com/oss/python/integrations/chat/deepseek)
@@ -17,9 +17,9 @@
 | --- | --- |
 | 核心链路 | ✅ 输入 → 检索 → 出题 → 答题 → 结算 → 报告 |
 | 小程序端 | ✅ **S01–S08 已按已确认 UI 落地**（首页/地图/答题/结算/报告/造关/生成/预览） |
-| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/Profile，pytest **43 passed** |
+| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/Profile，pytest **45 passed** |
 | AI 编排 | ✅ LangChain 0.3.x（LCEL + ChatDeepSeek），Mock/真实同构 |
-| 真实模型 | ⏳ 代码与请求形状已测；`.env` 尚未填 Key，真实联调待执行 |
+| 真实模型 | ✅ 已用阿里云 MaaS OpenAI 兼容网关跑通 1 组真实 E2E（`deepseek-v4.1-flash-1017`）；该网关无 DeepSeek 官方 Search API，当前关闭联网检索 |
 | 上线合规 | ⏳ S09–S13、登录、配额执行、内容审核、备案待做 |
 
 ## 界面
@@ -60,7 +60,12 @@ cp .env.example .env            # 可留空，默认走 Mock
 ```bash
 DEEPSEEK_API_KEY=sk-xxxxxxxx
 LLM_PROVIDER=deepseek
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-flash
+ENABLE_WEB_SEARCH=true
 ```
+
+> 如果使用第三方 OpenAI 兼容网关（如阿里云 MaaS），Base URL 通常要写到 `/compatible-mode/v1`，模型名用网关提供的 ID（例如 `deepseek-v4.1-flash-1017`）；这类网关通常没有 DeepSeek 官方 Search API，请设 `ENABLE_WEB_SEARCH=false`。当前本地 `.env` 即此配置，真实 E2E 已通过。
 
 ### 2. 启动小程序端
 
@@ -98,6 +103,25 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 - [风格板](prototype/00-style-guide.html) · [13 页线框](prototype/01-wireframes.html)
 - [UI 设计规范](docs/02-UI设计规范.md) · [页面设计说明](docs/03-页面设计说明.md)
 
+## 文档
+
+文档中心：[docs/README.md](docs/README.md)（单一事实来源）。从「我想做什么」选入口：
+
+| 我想… | 文档 |
+| --- | --- |
+| 2 分钟接手 | [00-交接摘要](docs/00-交接摘要.md) |
+| 知道现在做到哪 | [05-测试与验收报告](docs/05-测试与验收报告.md) · [16-路线图与待办](docs/16-路线图与待办.md) |
+| 看架构/代码在哪 | [08-系统架构与代码地图](docs/08-系统架构与代码地图.md) |
+| 调接口 | [09-API接口手册](docs/09-API接口手册.md) |
+| 改页面 | [03-页面设计说明](docs/03-页面设计说明.md) · [11-前端实现指南](docs/11-前端实现指南.md) |
+| 改 Prompt/模型 | [12-AI工程与Prompt手册](docs/12-AI工程与Prompt手册.md) · [07-技术核实](docs/07-技术核实.md) |
+| 跑测试/截图 | [13-测试手册](docs/13-测试手册.md) |
+| 部署上线 | [14-部署与运维手册](docs/14-部署与运维手册.md) |
+| 查报错 | [15-故障排查与FAQ](docs/15-故障排查与FAQ.md) |
+| 找术语/文件 | [17-术语表与索引](docs/17-术语表与索引.md) |
+
+完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
+
 ## 技术栈
 
 | 层 | 选型 |
@@ -115,7 +139,7 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 ## 测试
 
 ```bash
-# 后端单测 + 接口测试（43 个用例，Mock 模式；含真实 ChatDeepSeek 请求形状测试）
+# 后端单测 + 接口测试（45 个用例，Mock 模式；含真实 ChatDeepSeek 请求形状测试）
 cd backend && .venv/bin/python -m pytest -q
 
 # 前端类型检查与构建
@@ -130,7 +154,9 @@ SQLITE_PATH=../backend/data/app.db ../backend/.venv/bin/python scripts/seed_demo
 node scripts/screenshot.js
 ```
 
-当前基线：**43 passed / tsc 通过 / weapp+h5 构建通过 / E2E PASS（0 错误、0 404、375/390/768 无横向溢出）**。
+当前基线：**45 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（Mock 与真实模型各跑通一次；0 错误、0 404、375/390/768 无横向溢出）**。
+
+真实模型单组实测（2026-11-09，阿里云 MaaS `deepseek-v4.1-flash-1017`）：tokens 约 2.9k in / 2.1k out（实测 2871/2072、2996/2176），估算成本 **¥0.022–0.023**；从创建到完成 15–20s（含作答），批改/报告约 3s。该网关无 Search API，`web_search=false`，来源为空。
 
 ## 目录结构
 

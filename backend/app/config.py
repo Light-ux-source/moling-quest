@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "learn-with-ai"
-    app_version: str = "0.1.0"
+    app_version: str = "0.2.0"
     env: str = "dev"
 
     # ---- LLM ----
@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # ---- 联网检索（DeepSeek 官方 Search API）----
     enable_web_search: bool = True
+    # Search API 的 Base URL 与 Chat 网关可能不同（如阿里云 MaaS 无 Search API）
+    deepseek_search_base_url: str = "https://api.deepseek.com"
     search_count: int = 6
     search_qps_guard: bool = True
 
