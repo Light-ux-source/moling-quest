@@ -29,6 +29,7 @@ backend/data/*.db-*
 # 微信开发者工具在根目录生成的本地配置（真实 AppID / 本地设置）
 /project.config.json
 /project.private.config.json
+miniapp/project.private.config.json
 
 # 本地演示数据（截图/E2E 生成）
 miniapp/.demo-seed.json

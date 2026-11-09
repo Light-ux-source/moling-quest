@@ -2,15 +2,37 @@
   "miniprogramRoot": "dist/",
   "projectname": "learning-with-ai",
   "description": "AI 出题学习助手：输入想学的内容，AI 检索并出题，答题后生成分析报告",
-  "appid": "touristappid",
+  "appid": "wxa71369381341df73",
   "setting": {
     "urlCheck": false,
     "es6": false,
     "enhance": false,
     "postcss": false,
     "minified": false,
-    "compileHotReLoad": false
+    "compileHotReLoad": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }
