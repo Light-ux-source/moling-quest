@@ -1,0 +1,16 @@
+/**
+ * 环境配置
+ * - 开发：H5 与小程序都指向本机 FastAPI（小程序需在开发者工具勾选「不校验合法域名」）
+ * - 生产：构建时注入 TARO_APP_API_BASE=https://api.your-domain.com
+ */
+const FALLBACK_BASE = 'http://127.0.0.1:8000'
+const injected = process.env.TARO_APP_API_BASE
+
+export const API_BASE = (injected && injected.trim() ? injected : FALLBACK_BASE).replace(/\/+$/, '')
+
+export const STORAGE_KEYS = {
+  recentSessions: 'lwa_recent_sessions'
+} as const
+
+export const POLL_INTERVAL = 1200
+export const POLL_TIMEOUT = 120000

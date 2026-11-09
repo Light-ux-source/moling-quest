@@ -1,0 +1,16 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "learning-with-ai",
+  "description": "AI 出题学习助手：输入想学的内容，AI 检索并出题，答题后生成分析报告",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": false,
+    "enhance": false,
+    "postcss": false,
+    "minified": false,
+    "compileHotReLoad": false
+  },
+  "compileType": "miniprogram",
+  "condition": {}
+}

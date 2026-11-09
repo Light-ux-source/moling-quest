@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>墨灵闯关 · 线框草图 v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --paper: #f7f2e4;
+  --card: #fffdf6;
+  --ink: #23281f;
+  --ink-2: #4e564a;
+  --ink-3: #6b7265;
+  --moss: #3e6650;
+  --moss-deep: #2b4a39;
+  --amber: #c98a2e;
+  --vermilion: #bf5b42;
+  --wf-bg: #fbf8ef;
+  --wf-block: #f0eadb;
+  --wf-block-2: #e8e1d0;
+  --wf-line: #d6cebb;
+  --wf-line-2: #c5bca7;
+  --wf-muted: #7d8478;
+  --font-hand: "Ma Shan Zheng", "STKaiti", "KaiTi", serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  overflow-x: clip;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(900px 420px at 10% -6%, #fff9e9 0%, rgba(255, 249, 233, 0) 60%),
+    radial-gradient(760px 420px at 98% 2%, rgba(157, 191, 176, 0.3) 0%, rgba(157, 191, 176, 0) 60%);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='170' height='170' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+body > * { position: relative; z-index: 1; }
+:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
+a { color: var(--moss-deep); }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(247, 242, 228, 0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(35, 40, 31, 0.12);
+}
+.topbar-inner { max-width: 1240px; margin: 0 auto; padding: 11px 24px; display: flex; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-serif); font-weight: 700; }
+.topnav { margin-left: auto; display: flex; gap: 4px; }
+.topnav a { text-decoration: none; color: var(--ink-2); font-size: 12px; padding: 7px 11px; border-radius: 999px; }
+.topnav a:hover { background: #efe6d1; }
+
+.page-head { padding: 52px 0 24px; }
+.page-head .eyebrow { font-size: 11px; letter-spacing: 0.26em; color: var(--moss); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.page-head .eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--moss); opacity: 0.5; }
+.page-head h1 { font-family: var(--font-serif); font-size: clamp(32px, 4.4vw, 52px); line-height: 1.25; margin: 10px 0 10px; }
+.page-head h1 em { font-family: var(--font-hand); font-style: normal; color: var(--moss); }
+.page-head p { max-width: 700px; color: var(--ink-2); margin: 0; font-size: 15px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 22px 0 0; padding: 14px 18px; background: var(--card); border: 1px solid rgba(35, 40, 31, 0.1); border-radius: 16px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+.swatch-box { width: 24px; height: 14px; border-radius: 4px; background: var(--wf-block); border: 1.5px solid var(--wf-line-2); }
+.swatch-box.dashed { border-style: dashed; background: transparent; }
+.swatch-box.cta { background: var(--moss); border-color: var(--moss); }
+.swatch-box.hot { background: transparent; border: 1.5px solid var(--amber); border-radius: 50%; }
+
+.flow { margin: 26px 0 0; padding: 22px; background: var(--card); border: 1px solid rgba(35, 40, 31, 0.1); border-radius: 20px; overflow-x: auto; }
+.flow-row { display: flex; align-items: center; gap: 10px; min-width: 720px; }
+.flow-row + .flow-row { margin-top: 14px; }
+.flow-label { width: 74px; font-size: 11px; letter-spacing: 0.08em; color: var(--ink-3); flex: none; }
+.flow-node { padding: 9px 14px; border-radius: 12px; background: #f4eee0; border: 1.5px solid var(--wf-line); font-size: 12px; white-space: nowrap; }
+.flow-node.main { background: #e2ece3; border-color: #b9cdbc; }
+.flow-node.side { border-style: dashed; }
+.flow-arrow { color: var(--wf-line-2); font-size: 14px; }
+
+.section { padding: 54px 0 6px; }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 8px; }
+.section-head h2 { font-family: var(--font-serif); font-size: 26px; margin: 0; }
+.section-head h2 span { color: var(--ink-3); font-size: 13px; font-family: var(--font-sans); font-weight: 400; margin-left: 8px; }
+.section-head p { margin: 6px 0 0; font-size: 13px; color: var(--ink-3); max-width: 720px; }
+
+.wf-grid { display: grid; grid-template-columns: repeat(3, 375px); gap: 40px 26px; justify-content: center; margin-top: 26px; }
+.wf-card { width: 375px; }
+.wf-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.wf-title b { font-family: var(--font-serif); font-size: 15px; }
+.wf-title span { font-size: 11px; color: var(--ink-3); letter-spacing: 0.1em; }
+.wf-title em { margin-left: auto; font-style: normal; font-size: 10px; color: var(--amber); border: 1px solid rgba(201, 138, 46, 0.4); padding: 1px 7px; border-radius: 999px; }
+
+.wf-phone {
+  width: 375px; height: 812px;
+  border: 6px solid #2c3129;
+  border-radius: 40px;
+  background: var(--wf-bg);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 30px 46px -34px rgba(35, 40, 31, 0.7);
+}
+.wf-status { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 8px 18px 0; font-size: 10px; color: var(--wf-muted); font-variant-numeric: tabular-nums; }
+.wf-status .bars { display: flex; gap: 3px; align-items: flex-end; }
+.wf-status .bars i { display: block; width: 3px; background: #8f968a; border-radius: 1px; }
+.wf-status .bars i:nth-child(1) { height: 4px; }
+.wf-status .bars i:nth-child(2) { height: 7px; }
+.wf-status .bars i:nth-child(3) { height: 10px; }
+
+.wf-body { position: absolute; inset: 34px 0 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.wf-body.with-tab { padding-bottom: 84px; }
+
+.wf-row { display: flex; align-items: center; gap: 10px; }
+.wf-row.between { justify-content: space-between; }
+.wf-col { display: flex; flex-direction: column; gap: 5px; }
+.wf-avatar { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--wf-line-2); background: var(--wf-block); flex: none; }
+.wf-h { font-family: var(--font-serif); font-size: 13px; font-weight: 700; }
+.wf-more { font-size: 10px; color: var(--ink-3); }
+.wf-cap { font-size: 9px; letter-spacing: 0.12em; color: var(--wf-muted); }
+
+.line { height: 7px; border-radius: 4px; background: #ded6c3; }
+.line.w30 { width: 30%; } .line.w40 { width: 40%; } .line.w50 { width: 50%; }
+.line.w60 { width: 60%; } .line.w70 { width: 70%; } .line.w80 { width: 80%; }
+.line.w90 { width: 90%; } .line.tall { height: 12px; }
+.line.dark { background: #b9b19e; }
+
+.blk {
+  border: 1.5px solid var(--wf-line);
+  border-radius: 12px;
+  background: var(--wf-block);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 10px;
+  color: var(--wf-muted);
+  padding: 8px;
+  flex: none;
+}
+.blk.dashed { border-style: dashed; background: transparent; }
+.blk.hero { height: 168px; align-items: flex-start; justify-content: flex-start; text-align: left; padding: 14px; background: linear-gradient(150deg, #e6eedf, #d5e2d6); border-color: #b9cbb9; }
+.blk.hero .wf-cap { color: #5b705d; }
+.blk.full { width: 100%; }
+.blk.row { height: 66px; align-items: center; justify-content: flex-start; text-align: left; padding: 10px 12px; }
+.blk.small { height: 44px; }
+.blk.tall { height: 120px; }
+.blk.taller { height: 150px; }
+.blk.center { justify-content: center; text-align: center; }
+
+.wf-cta { background: var(--moss); color: #fffdf6; border: none; border-radius: 999px; height: 44px; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: auto; flex: none; }
+.wf-cta.ghost { background: transparent; color: var(--moss-deep); border: 1.5px solid var(--wf-line-2); }
+.wf-cta.amber { background: #e2b465; color: #4a320e; }
+
+.wf-tabbar {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; height: 56px;
+  border: 1.5px dashed var(--wf-line-2);
+  border-radius: 18px;
+  background: rgba(255, 253, 246, 0.72);
+  display: flex; justify-content: space-around; align-items: center;
+  font-size: 8px; color: var(--wf-muted);
+}
+.wf-tabbar span { display: grid; justify-items: center; gap: 3px; }
+.wf-tabbar i { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--wf-line-2); display: block; }
+.wf-tabbar span.on { color: var(--moss-deep); font-weight: 700; }
+.wf-tabbar span.on i { background: #dbe7dc; border-color: #9dbfb0; }
+
+.wf-progress { height: 7px; border-radius: 999px; background: #e5decc; overflow: hidden; }
+.wf-progress span { display: block; height: 100%; background: var(--moss); border-radius: 999px; }
+.wf-chip { font-size: 9px; padding: 3px 9px; border-radius: 999px; border: 1.5px solid var(--wf-line-2); color: var(--wf-muted); white-space: nowrap; }
+.wf-chip.on { background: #dbe7dc; border-color: #a9c2ae; color: var(--moss-deep); font-weight: 700; }
+
+.notes { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.notes li { display: flex; gap: 8px; font-size: 11px; color: var(--ink-2); line-height: 1.65; }
+.notes li::before { content: counter(note); counter-increment: note; width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--amber); color: var(--amber); font-size: 9px; display: grid; place-items: center; flex: none; margin-top: 1px; font-weight: 700; }
+.notes { counter-reset: note; }
+.notes.wide li { font-size: 12px; }
+
+.section-note { margin: 18px 0 0; padding: 14px 18px; border-left: 3px solid #a9c2ae; background: rgba(255, 253, 246, 0.7); font-size: 12px; color: var(--ink-2); line-height: 1.8; }
+.section-note b { color: var(--moss-deep); }
+
+.confirm { margin: 48px 0 64px; padding: 32px; border-radius: 24px; background: var(--ink); color: var(--paper); }
+.confirm h2 { font-family: var(--font-serif); margin: 0 0 8px; font-size: 24px; color: var(--paper); }
+.confirm p { color: rgba(247, 242, 228, 0.72); font-size: 13px; margin: 0 0 16px; }
+.confirm ul { margin: 0; padding-left: 18px; font-size: 13px; color: rgba(247, 242, 228, 0.86); line-height: 2; }
+.confirm code { background: rgba(255,255,255,.12); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+
+footer { border-top: 1px solid rgba(35,40,31,.12); padding: 22px 0 40px; font-size: 11px; color: var(--ink-3); }
+footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+
+@media (max-width: 1220px) {
+  .wf-grid { grid-template-columns: repeat(2, 375px); }
+}
+@media (max-width: 860px) {
+  .wf-grid { grid-template-columns: 375px; }
+  .topnav { display: none; }
+  .section { padding-top: 40px; }
+  .flow-row { min-width: 0; flex-wrap: wrap; row-gap: 6px; }
+  .flow-label { width: 100%; }
+  .flow-arrow { display: none; }
+}
+@media (max-width: 420px) {
+  .wrap { padding: 0 12px; }
+  .wf-grid { grid-template-columns: 1fr; }
+  .wf-card, .wf-phone { width: 100%; }
+  .wf-phone { height: auto; aspect-ratio: 375 / 812; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 200 200" aria-hidden="true">
+        <path d="M150 140C180 130 190 100 175 80" stroke="#23281f" stroke-width="16" fill="none" stroke-linecap="round"/>
+        <ellipse cx="100" cy="132" rx="50" ry="44" fill="#23281f"/><circle cx="100" cy="90" r="46" fill="#23281f"/>
+        <path d="M64 58L60 24l28 20z" fill="#23281f"/><path d="M136 58l4-34-28 20z" fill="#23281f"/>
+        <ellipse cx="82" cy="86" rx="11" ry="13" fill="#e0a23c"/><ellipse cx="118" cy="86" rx="11" ry="13" fill="#e0a23c"/>
+      </svg>
+      墨灵闯关
+    </div>
+    <nav class="topnav" aria-label="页面导航">
+      <a href="#flow">流程</a>
+      <a href="#core">核心 5 页</a>
+      <a href="#ai">AI 与错题</a>
+      <a href="#growth">成长与社交</a>
+      <a href="#confirm">确认</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="page-head">
+    <div class="eyebrow">WIREFRAME · v0.1 · 待人工确认</div>
+    <h1>先确认<em>骨架</em>，再上色</h1>
+    <p>
+      这一份是结构草图：灰块代表内容占位，绿块是主行动，虚线表示动态或待确认区域。
+      视觉气质（纸感、苔绿、原创猫灵）见 <a href="./00-style-guide.html">风格板</a>。
+      每页下方列出了交互说明，方便逐页评审。
+    </p>
+    <div class="legend">
+      <span class="legend-item"><span class="swatch-box"></span>已确定的内容区</span>
+      <span class="legend-item"><span class="swatch-box dashed"></span>动态 / 待确认</span>
+      <span class="legend-item"><span class="swatch-box cta"></span>主行动（每页只一个）</span>
+      <span class="legend-item"><span class="swatch-box hot"></span>交互说明序号</span>
+      <span class="legend-item">375 × 812 · 一行三列 · 窄屏自动降为两列/单列</span>
+    </div>
+  </section>
+
+  <section class="section" id="flow" style="padding-top:26px">
+    <div class="section-head">
+      <div>
+        <h2>信息架构 <span>IA</span></h2>
+        <p>主流程保持在 5 屏以内；AI 生成是"造关"支线，错题与成就是"回访"支线，互不打断。</p>
+      </div>
+    </div>
+    <div class="flow">
+      <div class="flow-row">
+        <span class="flow-label">主流程</span>
+        <span class="flow-node main">首页</span><span class="flow-arrow">→</span>
+        <span class="flow-node main">章节地图</span><span class="flow-arrow">→</span>
+        <span class="flow-node main">答题</span><span class="flow-arrow">→</span>
+        <span class="flow-node main">关卡结算</span><span class="flow-arrow">→</span>
+        <span class="flow-node main">学习报告</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-label">AI 支线</span>
+        <span class="flow-node side">输入主题</span><span class="flow-arrow">→</span>
+        <span class="flow-node side">AI 生成中</span><span class="flow-arrow">→</span>
+        <span class="flow-node side">关卡预览</span><span class="flow-arrow">→</span>
+        <span class="flow-node">进入答题</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-label">回访支线</span>
+        <span class="flow-node side">错题本</span><span class="flow-arrow">·</span>
+        <span class="flow-node side">成就 / 段位</span><span class="flow-arrow">·</span>
+        <span class="flow-node side">个人中心</span><span class="flow-arrow">·</span>
+        <span class="flow-node side">排行榜</span><span class="flow-arrow">·</span>
+        <span class="flow-node side">分享卡片</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="core">
+    <div class="section-head">
+      <div>
+        <h2>一、核心闭环 <span>5 页 · 必须先跑通</span></h2>
+        <p>从"今天要不要开始"到"知道自己哪里不会"，一屏只做一件事。</p>
+      </div>
+    </div>
+
+    <div class="wf-grid">
+      <!-- S01 首页 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>首页</b><span>S01 · HOME</span><em>入口</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body with-tab">
+            <div class="wf-row between">
+              <div class="wf-col">
+                <span class="wf-cap">晚上好，旅人</span>
+                <span class="wf-h">今天也去雾林走走？</span>
+              </div>
+              <div class="wf-row">
+                <span class="wf-chip on">连续 7 天</span>
+                <span class="wf-avatar"></span>
+              </div>
+            </div>
+
+            <div class="blk hero" style="flex-direction:column;gap:6px;justify-content:center">
+              <span class="wf-cap">TODAY'S PATH · 第三章</span>
+              <span class="wf-h" style="font-size:16px">第 3 关 · 栈与队列</span>
+              <span class="line w60" style="margin-top:2px"></span>
+              <span class="wf-row" style="gap:6px;margin-top:4px"><span class="wf-chip">5 题</span><span class="wf-chip">约 4 分钟</span><span class="wf-chip">★★☆</span></span>
+              <span class="wf-cta" style="width:118px;margin-top:10px;height:34px">继续闯关 →</span>
+            </div>
+
+            <div class="wf-row between" style="margin-top:4px"><span class="wf-h">你的章节</span><span class="wf-more">全部 4 个</span></div>
+            <div class="blk row">
+              <div class="wf-avatar" style="border-radius:10px"></div>
+              <div class="wf-col" style="flex:1">
+                <span class="line w50 tall"></span>
+                <span class="line w70"></span>
+                <div class="wf-progress" style="margin-top:2px"><span style="width:50%"></span></div>
+              </div>
+            </div>
+            <div class="blk row">
+              <div class="wf-avatar" style="border-radius:10px"></div>
+              <div class="wf-col" style="flex:1">
+                <span class="line w60 tall"></span>
+                <span class="line w50"></span>
+                <div class="wf-progress" style="margin-top:2px"><span style="width:33%"></span></div>
+              </div>
+            </div>
+
+            <div class="blk dashed" style="height:52px;justify-content:space-between;padding:10px 12px;flex-direction:row">
+              <span class="wf-cap">今日挑战 · 3 题</span>
+              <span class="wf-chip on">去挑战</span>
+            </div>
+          </div>
+          <div class="wf-tabbar">
+            <span class="on"><i></i>闯关</span><span><i></i>探索</span><span><i></i>错题</span><span><i></i>我的</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>主卡只放"继续"，不做多个并列 CTA，避免选择瘫痪。</li>
+          <li>章节卡展示进度与下一关；点击进入地图，不直接开始答题。</li>
+          <li>每日挑战是回访钩子，可先隐藏，确认后再加。</li>
+          <li>tabbar 固定 4 项，错题角标用数字而非红点（色盲可读）。</li>
+        </ol>
+      </div>
+
+      <!-- S02 章节地图 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>章节地图</b><span>S02 · MAP</span><em>核心</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body" style="padding-bottom:0;gap:8px">
+            <div class="wf-row between">
+              <span class="wf-avatar" style="width:30px;height:30px;border-radius:9px"></span>
+              <div class="wf-col" style="align-items:center;gap:2px">
+                <span class="wf-cap">CHAPTER 03</span>
+                <span class="wf-h">数据结构 · 栈与队列</span>
+              </div>
+              <span class="wf-chip">叶 128</span>
+            </div>
+
+            <div class="blk dashed" style="height:400px;position:relative;background:linear-gradient(180deg,#eef2e7,#e2eadd);border-color:#c9d5c6;display:block;padding:0">
+              <svg viewBox="0 0 343 400" style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M82 332C132 322 184 308 214 280C246 250 172 244 132 220C92 196 204 190 240 160C272 134 150 126 112 104C82 88 184 76 226 48"
+                      stroke="#7d9a84" stroke-width="3" fill="none" stroke-dasharray="2 10" stroke-linecap="round" opacity="0.7"/>
+              </svg>
+              <span style="position:absolute;left:24%;top:83%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:#e3ebdf;border:1.5px solid #9dbfb0;display:grid;place-items:center;font-size:11px;color:#3e6650">✓</span>
+              <span style="position:absolute;left:63%;top:70%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:#e3ebdf;border:1.5px solid #9dbfb0;display:grid;place-items:center;font-size:11px;color:#3e6650">✓</span>
+              <span style="position:absolute;left:38%;top:55%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:#e2b465;color:#4a320e;display:grid;place-items:center;font-size:12px;font-weight:700;box-shadow:0 0 0 8px rgba(201,138,46,.18)">3</span>
+              <span style="position:absolute;left:71%;top:40%;transform:translate(-50%,-50%);width:42px;height:42px;border-radius:50%;border:1.5px dashed #b5ad9b;background:#f0eadb;display:grid;place-items:center;font-size:10px;color:#a8a190">锁</span>
+              <span style="position:absolute;left:32%;top:26%;transform:translate(-50%,-50%);width:42px;height:42px;border-radius:50%;border:1.5px dashed #b5ad9b;background:#f0eadb;display:grid;place-items:center;font-size:10px;color:#a8a190">锁</span>
+              <span style="position:absolute;left:66%;top:12%;transform:translate(-50%,-50%);width:42px;height:42px;border-radius:50%;border:1.5px dashed #b5ad9b;background:#f0eadb;display:grid;place-items:center;font-size:10px;color:#a8a190">锁</span>
+
+              <span class="wf-cap" style="position:absolute;left:24%;top:calc(83% + 27px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">1-1 概念</span>
+              <span class="wf-cap" style="position:absolute;left:63%;top:calc(70% + 27px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">1-2 复杂度</span>
+              <span class="wf-cap" style="position:absolute;left:38%;top:calc(55% + 29px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">1-3 栈与队列</span>
+              <span class="wf-cap" style="position:absolute;left:71%;top:calc(40% + 27px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">1-4 链表</span>
+              <span class="wf-cap" style="position:absolute;left:32%;top:calc(26% + 27px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">1-5 树</span>
+              <span class="wf-cap" style="position:absolute;left:66%;top:calc(12% + 27px);transform:translateX(-50%);background:#fbf8ef;padding:2px 6px;border-radius:6px">章末 · 综合</span>
+            </div>
+
+            <div class="blk" style="height:142px;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;padding:12px 14px;background:#fdfaf1">
+              <div class="wf-row between" style="align-items:flex-start">
+                <div class="wf-col" style="gap:3px;align-items:flex-start">
+                  <span class="wf-h" style="font-size:14px">第 3 关 · 栈与队列</span>
+                  <span class="wf-cap">5 题 · 约 4 分钟 · 最佳 ★★☆</span>
+                </div>
+                <span class="wf-chip on">继续上次</span>
+              </div>
+              <div class="wf-cta" style="height:38px;margin-top:auto">开始闯关</div>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>路径用虚线+节点，不用进度条表达"走到哪"；滚动时地图可上下轻移。</li>
+          <li>当前节点琥珀高亮并站墨团；已完成打勾；未解锁显示锁，不显示关卡内容。</li>
+          <li>底部抽屉是唯一 CTA；点击节点先预览，再开始，避免误触。</li>
+          <li>章末节点可做"综合挑战"，需要 3 星才能解锁（待确认）。</li>
+        </ol>
+      </div>
+
+      <!-- S03 答题页 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>答题页</b><span>S03 · QUIZ</span><em>核心</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between">
+              <span class="wf-cap">第 3 关 · 栈与队列</span>
+              <span class="wf-h" style="font-size:12px">3 / 5</span>
+            </div>
+            <div class="wf-progress"><span style="width:60%"></span></div>
+
+            <div class="wf-row" style="margin-top:2px"><span class="wf-chip on">单选题</span><span class="wf-chip">中等</span></div>
+
+            <div class="blk" style="height:120px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:12px;flex-direction:column;gap:6px">
+              <span class="line w90 tall"></span>
+              <span class="line w80"></span>
+              <span class="line w50"></span>
+            </div>
+
+            <div class="blk" style="height:56px;justify-content:flex-start;text-align:left;padding:10px 12px;flex-direction:row;gap:8px;background:#e2ece3;border-color:#9dbfb0">
+              <span class="wf-chip on" style="width:22px;height:22px;display:grid;place-items:center;border-radius:50%;padding:0">A</span>
+              <span class="line w70"></span>
+            </div>
+            <div class="blk" style="height:56px;justify-content:flex-start;text-align:left;padding:10px 12px;flex-direction:row;gap:8px">
+              <span class="wf-chip" style="width:22px;height:22px;display:grid;place-items:center;border-radius:50%;padding:0">B</span>
+              <span class="line w60"></span>
+            </div>
+            <div class="blk" style="height:56px;justify-content:flex-start;text-align:left;padding:10px 12px;flex-direction:row;gap:8px">
+              <span class="wf-chip" style="width:22px;height:22px;display:grid;place-items:center;border-radius:50%;padding:0">C</span>
+              <span class="line w80"></span>
+            </div>
+            <div class="blk" style="height:56px;justify-content:flex-start;text-align:left;padding:10px 12px;flex-direction:row;gap:8px">
+              <span class="wf-chip" style="width:22px;height:22px;display:grid;place-items:center;border-radius:50%;padding:0">D</span>
+              <span class="line w50"></span>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:auto">
+              <span class="wf-cta ghost" style="flex:0 0 96px;height:42px">上一题</span>
+              <span class="wf-cta" style="flex:1;height:42px">下一题</span>
+            </div>
+            <div class="wf-row" style="justify-content:center;gap:5px">
+              <span style="width:14px;height:4px;border-radius:999px;background:#3e6650"></span>
+              <span style="width:4px;height:4px;border-radius:50%;background:#c9c2b0"></span>
+              <span style="width:4px;height:4px;border-radius:50%;background:#c9c2b0"></span>
+              <span style="width:4px;height:4px;border-radius:50%;background:#c9c2b0"></span>
+              <span style="width:4px;height:4px;border-radius:50%;background:#c9c2b0"></span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>题干区固定高度，选项数量变化不推动底部按钮，保证拇指位置稳定。</li>
+          <li>选中态同时改变底色与字母填充，不只靠颜色；未选中保持无阴影。</li>
+          <li>提交前若未答，弹二次确认；最后一题按钮变"提交答案"。</li>
+          <li>简答题时选项区替换为输入框 + 字数提示，布局不跳动。</li>
+        </ol>
+      </div>
+
+      <!-- S04 关卡结算 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>关卡结算</b><span>S04 · RESULT</span><em>反馈</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between"><span class="wf-cap">第三章 · 第 3 关</span><span class="wf-chip">4 分 12 秒</span></div>
+
+            <div style="display:flex;justify-content:center;margin-top:6px">
+              <div style="width:210px;height:150px;border:1.5px dashed var(--wf-line-2);border-radius:18px;display:grid;place-items:center;align-content:center;gap:6px;background:#fdfaf1">
+                <div class="wf-cap" style="letter-spacing:.2em">关 卡 评 级</div>
+                <div style="font-size:26px;letter-spacing:6px;color:#c98a2e">★★☆</div>
+                <div class="wf-h" style="font-size:20px">通关</div>
+                <span class="wf-cap">正确率 80% · 超过 62% 的旅人</span>
+              </div>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:8px">
+              <div class="blk" style="flex:1;height:62px;flex-direction:column;gap:3px"><span class="wf-h">80%</span><span class="wf-cap">正确率</span></div>
+              <div class="blk" style="flex:1;height:62px;flex-direction:column;gap:3px"><span class="wf-h">4:12</span><span class="wf-cap">用时</span></div>
+              <div class="blk" style="flex:1;height:62px;flex-direction:column;gap:3px"><span class="wf-h">×3</span><span class="wf-cap">连击</span></div>
+            </div>
+
+            <div class="blk dashed" style="height:84px;flex-direction:column;align-items:flex-start;gap:5px;padding:10px">
+              <span class="wf-cap">经验 +120 / 距离升级还差 80</span>
+              <div class="wf-progress" style="width:100%"><span style="width:66%"></span></div>
+              <span class="wf-cap">解锁：第 4 关 · 链表</span>
+            </div>
+
+            <div class="blk" style="height:44px;justify-content:space-between;padding:0 12px;flex-direction:row">
+              <span class="wf-cap">错题 1 道</span>
+              <span class="wf-chip">去查看</span>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:auto">
+              <span class="wf-cta ghost" style="flex:0 0 110px;height:42px">查看解析</span>
+              <span class="wf-cta" style="flex:1;height:42px">下一关</span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>先给"评级 + 三星"，再给数据；情绪在前，细节在后。</li>
+          <li>印章"通关"从上方落下，320ms 回弹一次，不循环。</li>
+          <li>错题只显示数量与入口，不在此页展开长文。</li>
+          <li>若未达标：不显示"失败"，改为"再走一遍"，主按钮变为"重练本关"。</li>
+        </ol>
+      </div>
+
+      <!-- S05 学习报告 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>学习报告</b><span>S05 · REPORT</span><em>核心</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between"><span class="wf-cap">本关报告 · 2026-11-09</span><span class="wf-chip">分享</span></div>
+            <div class="wf-h" style="font-size:16px">栈与队列 · 学习诊断</div>
+
+            <div class="blk" style="height:104px;flex-direction:row;justify-content:space-between;padding:12px 14px;background:#f2ecdd">
+              <div style="display:grid;place-items:center;width:72px;height:72px;border-radius:50%;border:3px solid #c98a2e;flex:none">
+                <span style="font-family:var(--font-serif);font-size:20px;font-weight:700;color:#4a320e">80</span>
+              </div>
+              <div class="wf-col" style="flex:1;align-items:flex-start;gap:4px">
+                <span class="wf-chip on">基础达标</span>
+                <span class="line w80"></span>
+                <span class="line w60"></span>
+              </div>
+            </div>
+
+            <span class="wf-h" style="font-size:12px">分题型</span>
+            <div class="wf-col" style="gap:6px">
+              <div class="wf-row" style="gap:6px"><span class="wf-cap" style="width:36px">单选</span><div class="wf-progress" style="flex:1"><span style="width:100%"></span></div><span class="wf-cap">2/2</span></div>
+              <div class="wf-row" style="gap:6px"><span class="wf-cap" style="width:36px">多选</span><div class="wf-progress" style="flex:1"><span style="width:50%;background:#c98a2e"></span></div><span class="wf-cap">1/2</span></div>
+              <div class="wf-row" style="gap:6px"><span class="wf-cap" style="width:36px">简答</span><div class="wf-progress" style="flex:1"><span style="width:60%;background:#bf5b42"></span></div><span class="wf-cap">0/1</span></div>
+            </div>
+
+            <div class="blk dashed" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px">
+              <span class="wf-cap">知识缺口</span>
+              <span class="line w80"></span>
+              <span class="line w60"></span>
+            </div>
+
+            <div class="blk dashed" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px">
+              <span class="wf-cap">下一步</span>
+              <span class="line w90"></span>
+              <span class="line w70"></span>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:auto">
+              <span class="wf-cta ghost" style="flex:0 0 100px;height:40px">逐题解析</span>
+              <span class="wf-cta" style="flex:1;height:40px">再练一组</span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>报告与结算分开：结算是情绪，报告是认知；报告可回看、可分享。</li>
+          <li>知识缺口只从错题生成，必须具体到"哪一题、哪个概念"，不写套话。</li>
+          <li>逐题解析进入二级页（或底部抽屉），避免本页过长。</li>
+          <li>分享卡片默认隐藏答案与原文，只展示星级、主题与一句诊断。</li>
+        </ol>
+      </div>
+    </div>
+    <p class="section-note">
+      <b>核心闭环的统一原则：</b>每屏只有一个主行动；所有等待都有分步说明；所有失败都有"重试/返回"两个出口；
+      吉祥物只出现在情绪节点（等待、答错、通关），不出现在题干与选项中。
+    </p>
+  </section>
+
+  <section class="section" id="ai">
+    <div class="section-head">
+      <div>
+        <h2>二、AI 造关与错题 <span>4 页 · 内容供给</span></h2>
+        <p>AI 不直接抛一堆题，而是先"造一条路"：检索 → 提纲 → 出题 → 预览确认，再进入答题。</p>
+      </div>
+    </div>
+
+    <div class="wf-grid">
+      <!-- S06 AI 输入 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>AI 生成 · 输入</b><span>S06 · CREATE</span><em>支线</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between"><span class="wf-avatar" style="width:28px;height:28px;border-radius:8px"></span><span class="wf-cap">返回</span></div>
+            <div class="wf-col" style="gap:4px;margin-top:2px">
+              <span class="wf-h" style="font-size:19px">造一条新的路</span>
+              <span class="wf-cap">输入一个具体的知识点，AI 会先检索再出题</span>
+            </div>
+
+            <div class="blk dashed" style="height:118px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:12px;flex-direction:column;gap:6px">
+              <span class="wf-cap">我想学</span>
+              <span class="line w80 tall"></span>
+              <span class="line w50"></span>
+              <span class="wf-cap" style="margin-top:auto">0 / 200</span>
+            </div>
+
+            <span class="wf-cap">试试这些</span>
+            <div class="wf-row" style="flex-wrap:wrap;gap:6px">
+              <span class="wf-chip">React Hooks 依赖数组</span>
+              <span class="wf-chip">期权定价直觉</span>
+              <span class="wf-chip">细胞呼吸三阶段</span>
+            </div>
+
+            <span class="wf-cap" style="margin-top:2px">难度</span>
+            <div class="wf-row" style="gap:6px">
+              <span class="wf-chip on">入门</span><span class="wf-chip">进阶</span><span class="wf-chip">挑战</span>
+            </div>
+
+            <span class="wf-cap">题量</span>
+            <div class="wf-row" style="gap:6px">
+              <span class="wf-chip">3 题</span><span class="wf-chip on">5 题</span><span class="wf-chip">8 题</span>
+            </div>
+
+            <span class="wf-cap">题型</span>
+            <div class="wf-row" style="gap:6px;flex-wrap:wrap">
+              <span class="wf-chip on">单选</span><span class="wf-chip on">多选</span><span class="wf-chip on">判断</span><span class="wf-chip">简答</span>
+            </div>
+
+            <div class="blk dashed" style="height:46px;justify-content:flex-start;padding:8px 10px;flex-direction:row;gap:8px">
+              <span class="wf-cap">预计 20–40 秒</span><span class="wf-cap">· 会标注来源</span>
+            </div>
+
+            <div class="wf-cta" style="margin-top:auto;height:44px">生成关卡</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>示例主题降低空输入焦虑；点击直接填入，不直接生成。</li>
+          <li>难度/题量/题型可折叠，默认展开，避免首屏过长。</li>
+          <li>先说明"会检索、会标注来源"，建立信任，而不是等生成完才说。</li>
+          <li>生成中可取消；取消不扣额度（额度规则待确认）。</li>
+        </ol>
+      </div>
+
+      <!-- S07 生成中 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>AI 生成中</b><span>S07 · GENERATING</span><em>等待</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div style="display:flex;justify-content:center;margin-top:26px">
+              <div style="width:104px;height:104px;border-radius:50%;border:2px dashed #a9c2ae;display:grid;place-items:center;background:#eef3ea">
+                <div style="width:56px;height:56px;border-radius:50%;background:#dbe7dc;display:grid;place-items:center;font-size:10px;color:#3e6650">墨团</div>
+              </div>
+            </div>
+            <div class="wf-col" style="align-items:center;gap:4px;margin-top:8px">
+              <span class="wf-h" style="font-size:15px">正在为「HTTP 缓存」准备题目</span>
+              <span class="wf-cap">通常 10–40 秒，可以先回忆一下</span>
+            </div>
+
+            <div class="wf-progress" style="margin-top:8px"><span style="width:42%"></span></div>
+
+            <div class="wf-col" style="gap:10px;margin-top:4px">
+              <div class="wf-row" style="gap:8px"><span class="wf-chip on" style="width:20px;height:20px;display:grid;place-items:center;border-radius:50%;padding:0">1</span><span class="wf-cap" style="color:#3e6650">联网检索资料 · 找到 6 条来源</span></div>
+              <div class="wf-row" style="gap:8px"><span class="wf-chip on" style="width:20px;height:20px;display:grid;place-items:center;border-radius:50%;padding:0">2</span><span class="wf-cap" style="color:#3e6650">提炼知识要点 · 进行中</span></div>
+              <div class="wf-row" style="gap:8px"><span class="wf-chip" style="width:20px;height:20px;display:grid;place-items:center;border-radius:50%;padding:0">3</span><span class="wf-cap">生成个性化题目 · 等待</span></div>
+            </div>
+
+            <div class="blk dashed" style="flex-direction:column;align-items:flex-start;gap:5px;padding:10px;margin-top:8px">
+              <span class="wf-cap">小提示</span>
+              <span class="line w90"></span>
+              <span class="line w60"></span>
+            </div>
+
+            <span class="wf-cta ghost" style="margin-top:auto;height:40px;border-color:#c5bca7">取消生成</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>三步进度必须真实映射后端状态，不做假动画。</li>
+          <li>失败时在当前位置替换为错误卡："重试 / 换个主题"，不跳页。</li>
+          <li>等待超过 45 秒给出"继续等 / 稍后回来"两个选项。</li>
+          <li>此页不显示广告或无关推荐，保持"专注等待"。</li>
+        </ol>
+      </div>
+
+      <!-- S08 关卡预览 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>关卡预览</b><span>S08 · PREVIEW</span><em>支线</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between"><span class="wf-chip">返回</span><span class="wf-chip on">AI 初稿</span></div>
+
+            <div class="blk hero" style="height:118px;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px">
+              <span class="wf-cap">新章节 · 5 关 · 入门</span>
+              <span class="wf-h" style="font-size:16px">HTTP 缓存机制</span>
+              <span class="wf-row" style="gap:5px;margin-top:2px"><span class="wf-chip">6 个来源</span><span class="wf-chip">5 题</span><span class="wf-chip">约 4 分钟</span></span>
+            </div>
+
+            <div class="wf-row between"><span class="wf-h" style="font-size:12px">关卡内容</span><span class="wf-cap">第 1 / 5 关</span></div>
+            <div class="blk" style="height:44px;justify-content:space-between;padding:0 10px;flex-direction:row"><span class="wf-cap">1. 强缓存与协商缓存的区别</span><span class="wf-chip">单选</span></div>
+            <div class="blk" style="height:44px;justify-content:space-between;padding:0 10px;flex-direction:row"><span class="wf-cap">2. Cache-Control 指令辨析</span><span class="wf-chip">多选</span></div>
+            <div class="blk" style="height:44px;justify-content:space-between;padding:0 10px;flex-direction:row"><span class="wf-cap">3. ETag 与 Last-Modified</span><span class="wf-chip">判断</span></div>
+            <div class="blk dashed" style="height:44px;justify-content:space-between;padding:0 10px;flex-direction:row"><span class="wf-cap">4. 场景题：首屏加载</span><span class="wf-chip">简答</span></div>
+
+            <div class="blk dashed" style="height:58px;flex-direction:column;align-items:flex-start;gap:4px;padding:8px 10px">
+              <span class="wf-cap">来源</span>
+              <span class="line w90"></span>
+              <span class="line w70"></span>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:auto">
+              <span class="wf-cta ghost" style="flex:0 0 100px;height:40px">重新生成</span>
+              <span class="wf-cta" style="flex:1;height:40px">开始闯关</span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>预览只展示题干与题型，不展示答案；来源可点开查看。</li>
+          <li>"AI 初稿"标签提示内容可能不完美，允许重新生成一次。</li>
+          <li>生成 5 关还是 1 关需要确认：建议先生成 3 关小章节，降低失败成本。</li>
+          <li>关卡命名可编辑（P1），MVP 只读。</li>
+        </ol>
+      </div>
+
+      <!-- S09 错题本 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>错题本</b><span>S09 · MISTAKES</span><em>回访</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body with-tab">
+            <div class="wf-row between"><span class="wf-h" style="font-size:18px">错题本</span><span class="wf-chip">12 道</span></div>
+            <div class="wf-row" style="gap:6px;margin-top:2px">
+              <span class="wf-chip on">全部</span><span class="wf-chip">数据结构</span><span class="wf-chip">HTTP</span><span class="wf-chip">待复习</span>
+            </div>
+
+            <div class="blk" style="height:54px;flex-direction:row;justify-content:space-between;padding:8px 12px">
+              <div class="wf-col" style="gap:2px"><span class="wf-h" style="font-size:12px">3 个知识点反复出错</span><span class="wf-cap">循环队列 · ETag · 复杂度</span></div>
+              <span class="wf-chip on">优先练</span>
+            </div>
+
+            <div class="blk" style="height:86px;flex-direction:column;align-items:flex-start;gap:5px;padding:10px">
+              <div class="wf-row" style="gap:6px"><span class="wf-chip">多选</span><span class="wf-chip">第 3 关</span><span class="wf-cap" style="margin-left:auto">错 2 次</span></div>
+              <span class="line w90"></span>
+              <span class="line w60"></span>
+              <div class="wf-row" style="gap:8px;margin-top:2px"><span class="wf-cap" style="color:#bf5b42">你的答案 B</span><span class="wf-cap" style="color:#3e6650">正确 ABD</span><span class="wf-chip on" style="margin-left:auto">去重练</span></div>
+            </div>
+
+            <div class="blk" style="height:86px;flex-direction:column;align-items:flex-start;gap:5px;padding:10px">
+              <div class="wf-row" style="gap:6px"><span class="wf-chip">简答</span><span class="wf-chip">第 3 关</span><span class="wf-cap" style="margin-left:auto">错 1 次</span></div>
+              <span class="line w90"></span>
+              <span class="line w70"></span>
+              <div class="wf-row" style="gap:8px;margin-top:2px"><span class="wf-cap" style="color:#bf5b42">得分 0.4</span><span class="wf-cap">缺失 2 个要点</span><span class="wf-chip on" style="margin-left:auto">去重练</span></div>
+            </div>
+
+            <div class="blk" style="height:86px;flex-direction:column;align-items:flex-start;gap:5px;padding:10px">
+              <div class="wf-row" style="gap:6px"><span class="wf-chip">单选</span><span class="wf-chip">第 2 关</span><span class="wf-cap" style="margin-left:auto">错 1 次</span></div>
+              <span class="line w80"></span>
+              <span class="line w50"></span>
+              <div class="wf-row" style="gap:8px;margin-top:2px"><span class="wf-cap" style="color:#bf5b42">你的答案 C</span><span class="wf-cap" style="color:#3e6650">正确 A</span><span class="wf-chip on" style="margin-left:auto">去重练</span></div>
+            </div>
+
+            <div class="wf-cta" style="margin-top:auto;height:42px">按知识点组卷重练</div>
+          </div>
+          <div class="wf-tabbar">
+            <span><i></i>闯关</span><span><i></i>探索</span><span class="on"><i></i>错题</span><span><i></i>我的</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>错题按"知识点"聚合，而不是按时间堆列表；优先练给出明确行动。</li>
+          <li>每题展示"你的答案 / 正确答案 / 错因标签"，不在此页写长篇解析。</li>
+          <li>重练进入限时组卷（3–5 题），答对后从错题本移除。</li>
+          <li>空状态：墨团蹲在空篮子旁，文案"还没有错题，去走一段新路"。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="growth">
+    <div class="section-head">
+      <div>
+        <h2>三、成长与社交 <span>4 页 · 留存与传播</span></h2>
+        <p>段位、成就与分享都要"轻"：不制造攀比焦虑，只记录自己的路。</p>
+      </div>
+    </div>
+
+    <div class="wf-grid">
+      <!-- S10 成就与段位 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>成就与段位</b><span>S10 · GROWTH</span><em>回访</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body with-tab">
+            <div class="wf-row between"><span class="wf-h" style="font-size:18px">成长</span><span class="wf-chip">S3 · 青苔行者</span></div>
+
+            <div class="blk" style="height:132px;flex-direction:row;gap:14px;justify-content:flex-start;padding:14px;background:#f2ecdd">
+              <div style="width:82px;height:82px;border-radius:50%;border:3px solid #a9c2ae;display:grid;place-items:center;flex:none">
+                <div style="width:58px;height:58px;border-radius:50%;background:#dbe7dc;display:grid;place-items:center;font-size:9px;color:#3e6650">猫灵徽记</div>
+              </div>
+              <div class="wf-col" style="gap:5px;flex:1">
+                <span class="wf-h" style="font-size:15px">青苔行者</span>
+                <span class="wf-cap">本周走了 12 关 · 超过 62% 的旅人</span>
+                <div class="wf-progress" style="margin-top:2px"><span style="width:64%"></span></div>
+                <span class="wf-cap">还差 80 经验到 S4 · 雾林向导</span>
+              </div>
+            </div>
+
+            <div class="wf-row between" style="margin-top:2px"><span class="wf-h" style="font-size:12px">徽章</span><span class="wf-more">3 / 9 已点亮</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div class="blk" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%"></span><span class="wf-cap">初次通关</span></div>
+              <div class="blk" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%"></span><span class="wf-cap">连续 7 天</span></div>
+              <div class="blk" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%"></span><span class="wf-cap">满星一关</span></div>
+              <div class="blk dashed" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%;border-style:dashed"></span><span class="wf-cap">未解锁</span></div>
+              <div class="blk dashed" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%;border-style:dashed"></span><span class="wf-cap">未解锁</span></div>
+              <div class="blk dashed" style="height:76px;flex-direction:column;gap:4px"><span class="wf-avatar" style="width:30px;height:30px;border-radius:50%;border-style:dashed"></span><span class="wf-cap">未解锁</span></div>
+            </div>
+
+            <div class="blk dashed" style="height:70px;flex-direction:column;align-items:flex-start;gap:5px;padding:10px">
+              <span class="wf-cap">本周轨迹</span>
+              <div class="wf-row" style="gap:4px;align-items:flex-end;height:28px">
+                <span style="width:14px;height:12px;background:#a9c2ae;border-radius:3px"></span>
+                <span style="width:14px;height:22px;background:#3e6650;border-radius:3px"></span>
+                <span style="width:14px;height:8px;background:#d6cebb;border-radius:3px"></span>
+                <span style="width:14px;height:26px;background:#3e6650;border-radius:3px"></span>
+                <span style="width:14px;height:16px;background:#a9c2ae;border-radius:3px"></span>
+                <span style="width:14px;height:0;background:#e0a23c;border-radius:3px"></span>
+                <span style="width:14px;height:18px;background:#a9c2ae;border-radius:3px"></span>
+              </div>
+            </div>
+          </div>
+          <div class="wf-tabbar">
+            <span><i></i>闯关</span><span><i></i>探索</span><span><i></i>错题</span><span class="on"><i></i>我的</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>段位命名用"行者/向导/守林人"等森林意象，不用"王者/钻石"。</li>
+          <li>徽章只做记录，不做排行榜加成；未解锁不显示具体条件以外的暗示。</li>
+          <li>本周轨迹是 7 个小柱，缺卡不指责，只留空。</li>
+          <li>入口在"我的"页，不占 tabbar。</li>
+        </ol>
+      </div>
+
+      <!-- S11 个人中心 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>个人中心</b><span>S11 · PROFILE</span><em>回访</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body with-tab">
+            <div class="wf-row" style="gap:12px;margin-top:4px">
+              <div class="wf-avatar" style="width:58px;height:58px"></div>
+              <div class="wf-col" style="gap:3px">
+                <span class="wf-h" style="font-size:17px">旅人 · 阿墨</span>
+                <span class="wf-cap">已走过 24 关 · 连续 7 天</span>
+              </div>
+              <span class="wf-chip" style="margin-left:auto">设置</span>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:6px">
+              <div class="blk" style="flex:1;height:58px;flex-direction:column;gap:2px"><span class="wf-h">24</span><span class="wf-cap">通关</span></div>
+              <div class="blk" style="flex:1;height:58px;flex-direction:column;gap:2px"><span class="wf-h">68</span><span class="wf-cap">星星</span></div>
+              <div class="blk" style="flex:1;height:58px;flex-direction:column;gap:2px"><span class="wf-h">7</span><span class="wf-cap">连续天</span></div>
+            </div>
+
+            <div class="blk dashed" style="height:64px;flex-direction:row;justify-content:space-between;padding:10px 12px">
+              <div class="wf-col" style="gap:2px;align-items:flex-start"><span class="wf-h" style="font-size:12px">AI 造关额度</span><span class="wf-cap">本月 3 / 10 次</span></div>
+              <span class="wf-chip on">了解会员</span>
+            </div>
+
+            <div class="wf-col" style="gap:0;margin-top:4px">
+              <div class="wf-row between" style="padding:12px 4px;border-bottom:1px solid #e4dccb"><span class="wf-cap" style="color:#3b4038">学习报告</span><span class="wf-cap">›</span></div>
+              <div class="wf-row between" style="padding:12px 4px;border-bottom:1px solid #e4dccb"><span class="wf-cap" style="color:#3b4038">错题本</span><span class="wf-cap">›</span></div>
+              <div class="wf-row between" style="padding:12px 4px;border-bottom:1px solid #e4dccb"><span class="wf-cap" style="color:#3b4038">成就与段位</span><span class="wf-cap">›</span></div>
+              <div class="wf-row between" style="padding:12px 4px;border-bottom:1px solid #e4dccb"><span class="wf-cap" style="color:#3b4038">学习提醒</span><span class="wf-cap">已开启</span></div>
+              <div class="wf-row between" style="padding:12px 4px"><span class="wf-cap" style="color:#3b4038">关于与反馈</span><span class="wf-cap">›</span></div>
+            </div>
+
+            <span class="wf-cap" style="text-align:center;margin-top:auto">内容由 AI 生成，仅供学习参考 · v0.1</span>
+          </div>
+          <div class="wf-tabbar">
+            <span><i></i>闯关</span><span><i></i>探索</span><span><i></i>错题</span><span class="on"><i></i>我的</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>MVP 不做登录时，昵称与头像用本地默认值，点击提示"登录后可同步"。</li>
+          <li>额度卡是付费入口，但文案避免"限时/即将涨价"。</li>
+          <li>菜单不超过 6 行，设置与反馈放最后。</li>
+          <li>底部必须有 AI 生成免责声明，符合合规要求。</li>
+        </ol>
+      </div>
+
+      <!-- S12 分享卡片 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>分享卡片</b><span>S12 · SHARE</span><em>传播</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body">
+            <div class="wf-row between"><span class="wf-chip">关闭</span><span class="wf-cap">分享我的这一关</span></div>
+
+            <div class="blk" style="height:430px;padding:0;background:#fdfaf1;border-color:#d6cebb;display:block;position:relative;overflow:hidden">
+              <div style="position:absolute;left:18px;top:18px;right:18px;display:flex;justify-content:space-between;align-items:flex-start">
+                <div class="wf-col" style="gap:3px;align-items:flex-start">
+                  <span class="wf-cap">MOLING QUEST</span>
+                  <span class="wf-h" style="font-size:15px">栈与队列</span>
+                </div>
+                <span class="wf-chip" style="border-color:#bf5b42;color:#bf5b42">通 关</span>
+              </div>
+
+              <div style="position:absolute;left:0;right:0;top:96px;display:flex;justify-content:center">
+                <div style="width:132px;height:132px;border-radius:50%;background:#eef3ea;border:1.5px dashed #a9c2ae;display:grid;place-items:center;font-size:10px;color:#3e6650">墨团 · 开心</div>
+              </div>
+
+              <div style="position:absolute;left:0;right:0;top:252px;text-align:center">
+                <div style="font-size:22px;letter-spacing:8px;color:#c98a2e">★★☆</div>
+                <div class="wf-cap" style="margin-top:4px">正确率 80% · 用时 4:12</div>
+              </div>
+
+              <div style="position:absolute;left:18px;right:18px;bottom:18px;display:flex;align-items:center;gap:12px">
+                <div style="width:64px;height:64px;border:1.5px solid #c5bca7;border-radius:8px;display:grid;place-items:center;font-size:8px;color:#7d8478">小程序码</div>
+                <div class="wf-col" style="gap:2px;align-items:flex-start">
+                  <span class="wf-cap" style="color:#3b4038">扫码来走同一条路</span>
+                  <span class="wf-cap">墨灵闯关 · 每天 5 分钟</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="wf-row" style="gap:8px;margin-top:10px">
+              <div class="blk" style="flex:1;height:54px;flex-direction:column;gap:3px"><span class="wf-avatar" style="width:18px;height:18px;border-radius:50%"></span><span class="wf-cap">微信好友</span></div>
+              <div class="blk" style="flex:1;height:54px;flex-direction:column;gap:3px"><span class="wf-avatar" style="width:18px;height:18px;border-radius:50%"></span><span class="wf-cap">朋友圈</span></div>
+              <div class="blk dashed" style="flex:1;height:54px;flex-direction:column;gap:3px"><span class="wf-avatar" style="width:18px;height:18px;border-radius:50%"></span><span class="wf-cap">保存图片</span></div>
+            </div>
+
+            <span class="wf-cap" style="text-align:center;margin-top:auto">分享图不含题目原文与答案</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>默认只分享星级、主题与诊断，不泄露题目与答案（隐私 + 防作弊）。</li>
+          <li>卡片比例 3:4，适配朋友圈与聊天窗口；小程序码放右下。</li>
+          <li>分享落地页：未登录可直接答题，降低新用户门槛。</li>
+          <li>通关印章可做"实体化"样式，但不要伪造官方认证。</li>
+        </ol>
+      </div>
+
+      <!-- S13 排行榜 -->
+      <div class="wf-card">
+        <div class="wf-title"><b>排行榜</b><span>S13 · RANK</span><em>可选</em></div>
+        <div class="wf-phone">
+          <div class="wf-status"><span>9:41</span><span class="bars"><i></i><i></i><i></i></span></div>
+          <div class="wf-body with-tab">
+            <div class="wf-row between"><span class="wf-h" style="font-size:18px">雾林榜</span><span class="wf-chip">S3</span></div>
+            <div class="wf-row" style="gap:6px;margin-top:2px">
+              <span class="wf-chip on">本周</span><span class="wf-chip">总榜</span><span class="wf-chip">好友</span>
+            </div>
+
+            <div style="display:flex;align-items:flex-end;justify-content:center;gap:10px;height:150px;margin-top:6px">
+              <div class="blk" style="width:74px;height:98px;flex-direction:column;gap:3px"><span class="wf-avatar" style="width:26px;height:26px"></span><span class="wf-cap">2</span><span class="wf-cap">1,240</span></div>
+              <div class="blk" style="width:82px;height:126px;flex-direction:column;gap:3px;background:#f3e2bc;border-color:#d8b877"><span class="wf-avatar" style="width:30px;height:30px"></span><span class="wf-cap">1</span><span class="wf-cap">1,580</span></div>
+              <div class="blk" style="width:74px;height:86px;flex-direction:column;gap:3px"><span class="wf-avatar" style="width:26px;height:26px"></span><span class="wf-cap">3</span><span class="wf-cap">1,105</span></div>
+            </div>
+
+            <div class="wf-col" style="gap:6px;margin-top:4px">
+              <div class="wf-row between" style="padding:7px 2px;border-bottom:1px solid #e4dccb"><span class="wf-cap">4 · 林间小妖</span><span class="wf-cap">986</span></div>
+              <div class="wf-row between" style="padding:7px 2px;border-bottom:1px solid #e4dccb"><span class="wf-cap">5 · 阿墨（你）</span><span class="wf-cap">940</span></div>
+              <div class="wf-row between" style="padding:7px 2px;border-bottom:1px solid #e4dccb"><span class="wf-cap">6 · 一只狸</span><span class="wf-cap">912</span></div>
+              <div class="wf-row between" style="padding:7px 2px"><span class="wf-cap">7 · 树洞先生</span><span class="wf-cap">880</span></div>
+            </div>
+
+            <div class="blk dashed" style="height:48px;flex-direction:row;justify-content:space-between;padding:8px 12px;margin-top:auto">
+              <span class="wf-cap">我的排名 · 第 5</span>
+              <span class="wf-chip on">继续闯关</span>
+            </div>
+          </div>
+          <div class="wf-tabbar">
+            <span><i></i>闯关</span><span><i></i>探索</span><span><i></i>错题</span><span><i></i>我的</span>
+          </div>
+        </div>
+        <ol class="notes">
+          <li>排行榜是 P2：先确认完赛率与留存，再决定是否引入竞争。</li>
+          <li>默认只看"本周"与"好友"，不做全站实名曝光。</li>
+          <li>榜单只按经验值，不按正确率，避免刷题攀比。</li>
+          <li>未成年人场景需默认关闭排行榜（合规）。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="confirm" id="confirm">
+    <h2>请确认，或指出要改的地方</h2>
+    <p>这份线框只定结构，不定视觉细节；视觉见 00-style-guide.html。你确认后我再产出三套高保真原型。</p>
+    <ul>
+      <li>核心闭环 5 页的信息密度是否合适？首页要不要更空 / 更满？</li>
+      <li>答题页是"一题一屏"还是"一组题滚动"？（当前按一题一屏）</li>
+      <li>章节是"每章 6 关"还是"每章 3 关"？章末综合关是否需要 3 星解锁？</li>
+      <li>AI 生成是"5 关一个小章节"还是"1 关一组题"？（当前按 5 关预览）</li>
+      <li>排行榜是否要进首版？（建议 P2，先不做）</li>
+      <li>确认后交付：<code>10-core-flow.html</code> / <code>11-ai-create.html</code> / <code>12-growth.html</code>，每文件一行三列、响应式、可点击。</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>墨灵闯关 · 线框草图 v0.1 · 2026-11-09</span>
+    <span>配套文件：00-style-guide.html（风格板）</span>
+  </div>
+</footer>
+
+</body>
+</html>

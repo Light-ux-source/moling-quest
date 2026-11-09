@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>墨灵闯关 · UI 风格板 v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   墨灵闯关 · Design Tokens
+   风格：治愈手绘 · 纸感 · 森林晨雾 · 原创猫灵
+   ============================================================ */
+:root {
+  --paper: #f7f2e4;
+  --paper-2: #efe6d1;
+  --card: #fffdf6;
+  --ink: #23281f;
+  --ink-2: #4e564a;
+  --ink-3: #626a5c;
+  --moss: #3e6650;
+  --moss-deep: #2b4a39;
+  --moss-light: #dbe7dc;
+  --celadon: #9dbfb0;
+  --amber: #e0a23c;
+  --amber-2: #f3d9a4;
+  --amber-deep: #a96f1f;
+  --vermilion: #bf5b42;
+  --mist: #dde7df;
+  --line: rgba(35, 40, 31, 0.14);
+  --line-strong: rgba(35, 40, 31, 0.32);
+  --radius-s: 12px;
+  --radius-m: 20px;
+  --radius-l: 28px;
+  --radius-xl: 40px;
+  --shadow-s: 0 2px 0 rgba(35, 40, 31, 0.08);
+  --shadow-m: 0 14px 30px -20px rgba(35, 40, 31, 0.5);
+  --shadow-l: 0 32px 60px -36px rgba(35, 40, 31, 0.55);
+  --font-hand: "Ma Shan Zheng", "STKaiti", "KaiTi", "Songti SC", serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(1100px 520px at 8% -8%, #fff9e9 0%, rgba(255, 249, 233, 0) 62%),
+    radial-gradient(900px 520px at 104% 4%, rgba(157, 191, 176, 0.38) 0%, rgba(157, 191, 176, 0) 58%),
+    radial-gradient(700px 460px at 50% 120%, rgba(224, 162, 60, 0.13) 0%, rgba(224, 162, 60, 0) 60%);
+  background-attachment: fixed;
+}
+
+/* 纸张颗粒 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+body > * { position: relative; z-index: 1; }
+
+a { color: inherit; }
+
+::selection { background: var(--amber-2); color: var(--ink); }
+
+:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---------- 布局 ---------- */
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  background: rgba(247, 242, 228, 0.82);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-serif); font-weight: 700; letter-spacing: 0.04em; }
+.brand svg { display: block; }
+
+.topnav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.topnav a {
+  text-decoration: none;
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 8px 12px;
+  border-radius: 999px;
+  transition: background 160ms ease, color 160ms ease;
+}
+.topnav a:hover { background: var(--paper-2); color: var(--ink); }
+
+.section { padding: 76px 0 8px; }
+.section-head { max-width: 720px; margin-bottom: 32px; }
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--moss);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--moss); opacity: 0.5; }
+
+h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 700; line-height: 1.3; margin: 0; letter-spacing: 0.01em; }
+h1 { font-size: clamp(44px, 7vw, 76px); }
+h2 { font-size: clamp(28px, 3.6vw, 40px); }
+h3 { font-size: 21px; }
+p { margin: 0 0 14px; color: var(--ink-2); }
+.lead { font-size: 18px; color: var(--ink-2); max-width: 680px; }
+
+.hand { font-family: var(--font-hand); font-weight: 400; color: var(--moss); }
+.amber-text { color: var(--amber-deep); }
+.muted { color: var(--ink-3); font-size: 13px; }
+
+.underline-brush {
+  display: inline-block;
+  padding-bottom: 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='12' viewBox='0 0 240 12'%3E%3Cpath d='M2 8C40 3 80 10 120 5s80 3 118-1' stroke='%23E0A23C' stroke-width='4' fill='none' stroke-linecap='round' opacity='.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 10px;
+}
+
+/* ---------- 封面 ---------- */
+.cover { padding: 64px 0 40px; }
+.cover-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+}
+.cover-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--moss);
+  margin-bottom: 22px;
+}
+.cover h1 .hand { display: inline-block; transform: rotate(-1.2deg); }
+.cover-sub {
+  font-size: 18px;
+  line-height: 1.9;
+  color: var(--ink-2);
+  max-width: 520px;
+  margin: 22px 0 28px;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--celadon); }
+.chip.gold .dot { background: var(--amber); }
+
+.mascot-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 380px;
+}
+.mascot-stage::before {
+  content: "";
+  position: absolute;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fffdf1 0%, var(--mist) 58%, rgba(221, 231, 223, 0) 72%);
+  filter: blur(2px);
+}
+.mascot-stage .mascot { position: relative; width: 250px; animation: float 5.2s ease-in-out infinite; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-12px) rotate(0.8deg); }
+}
+
+.cover-note {
+  margin-top: 26px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: var(--ink-3);
+  max-width: 460px;
+  line-height: 1.8;
+}
+.cover-note svg { flex: none; margin-top: 3px; }
+
+/* ---------- 概念卡 ---------- */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+
+.paper-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  padding: 26px;
+  box-shadow: var(--shadow-m);
+}
+.paper-card.tilt-a { transform: rotate(-0.5deg); }
+.paper-card.tilt-b { transform: rotate(0.45deg); }
+
+.concept-card h3 { margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.concept-card p { font-size: 14px; margin: 0; }
+.concept-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: var(--moss-light); color: var(--moss-deep);
+}
+.concept-card:nth-child(2) .concept-icon { background: var(--amber-2); color: var(--amber-deep); }
+.concept-card:nth-child(3) .concept-icon { background: #e7ded0; color: #6b5641; }
+
+/* ---------- 情绪板 ---------- */
+.mood-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.mood-tile {
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  position: relative;
+  background: var(--paper-2);
+  box-shadow: var(--shadow-s);
+}
+.mood-tile figcaption {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  background: rgba(255, 253, 246, 0.82);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.mood-fog {
+  background:
+    radial-gradient(120% 80% at 50% 110%, #cfe0d2 0%, transparent 60%),
+    linear-gradient(180deg, #eef2e6 0%, #c9d8c8 55%, #8aa892 100%);
+}
+.mood-fog svg { position: absolute; inset: auto 0 0 0; width: 100%; height: 70%; opacity: 0.5; }
+.mood-paper {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23p)' opacity='0.16'/%3E%3C/svg%3E"),
+    #f7f2e4;
+}
+.mood-ink {
+  background: #f2ecdc;
+}
+.mood-ink svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mood-amber {
+  background:
+    radial-gradient(circle at 50% 42%, #f7d79a 0%, #e0a23c 34%, #b97423 62%, #5c3a16 100%);
+}
+.mood-amber svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.9; }
+
+/* ---------- 色板 ---------- */
+.swatch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.swatch {
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: var(--shadow-s);
+}
+.swatch-color { height: 92px; position: relative; }
+.swatch-meta { padding: 12px 14px 14px; }
+.swatch-name { font-family: var(--font-serif); font-weight: 700; font-size: 15px; }
+.swatch-hex { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.swatch-use { font-size: 11px; color: var(--ink-3); margin-top: 6px; line-height: 1.5; }
+.contrast-note {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+  border-left: 3px solid var(--celadon);
+  padding-left: 12px;
+  line-height: 1.8;
+}
+
+/* ---------- 排版 ---------- */
+.type-spec { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.type-demo { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 32px; }
+.type-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px dashed var(--line); }
+.type-row:last-child { border-bottom: none; }
+.type-label { font-size: 11px; letter-spacing: 0.12em; color: var(--ink-3); text-transform: uppercase; }
+.type-sample-hand { font-family: var(--font-hand); font-size: 44px; line-height: 1.2; }
+.type-sample-h { font-family: var(--font-serif); font-size: 30px; font-weight: 700; }
+.type-sample-body { font-size: 16px; }
+.type-sample-small { font-size: 13px; color: var(--ink-3); }
+.scale-list { display: grid; gap: 10px; }
+.scale-item { display: flex; justify-content: space-between; font-size: 13px; border-bottom: 1px dotted var(--line); padding-bottom: 8px; }
+.scale-item b { font-family: var(--font-serif); }
+
+/* ---------- 图形语言 ---------- */
+.motif-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.motif {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 18px;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.motif-visual { height: 74px; display: flex; align-items: center; justify-content: center; }
+.motif-name { font-size: 14px; font-weight: 600; }
+.motif-desc { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+
+.seal {
+  display: inline-grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border: 3px solid var(--vermilion);
+  border-radius: 8px;
+  color: var(--vermilion);
+  font-family: var(--font-hand);
+  font-size: 20px;
+  line-height: 1.1;
+  transform: rotate(-6deg);
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  opacity: 0.9;
+}
+.tape {
+  width: 120px;
+  height: 30px;
+  background: rgba(224, 162, 60, 0.28);
+  border-left: 1px dashed rgba(169, 111, 31, 0.4);
+  border-right: 1px dashed rgba(169, 111, 31, 0.4);
+  transform: rotate(-3deg);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--amber-deep);
+  letter-spacing: 0.16em;
+}
+
+/* ---------- 组件 ---------- */
+.component-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.component-block { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 24px; box-shadow: var(--shadow-s); }
+.component-block h4 { font-family: var(--font-serif); font-size: 15px; margin-bottom: 16px; color: var(--ink-2); display: flex; justify-content: space-between; }
+.component-block h4 span { font-family: var(--font-sans); font-weight: 400; color: var(--ink-3); font-size: 11px; letter-spacing: 0.08em; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--moss);
+  color: #fffdf6;
+  box-shadow: 0 4px 0 var(--moss-deep), 0 10px 24px -14px rgba(43, 74, 57, 0.8);
+}
+.btn-primary:hover { background: #46725a; transform: translateY(-1px); box-shadow: 0 5px 0 var(--moss-deep), 0 14px 26px -14px rgba(43, 74, 57, 0.8); }
+.btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--moss-deep); }
+.btn-ghost { background: transparent; color: var(--moss-deep); border-color: var(--line-strong); }
+.btn-ghost:hover { background: var(--paper-2); }
+.btn-amber { background: var(--amber); color: #3a2809; box-shadow: 0 4px 0 #b97423; }
+.btn-disabled { background: #ded8c8; color: #8a8676; box-shadow: none; cursor: not-allowed; pointer-events: none; }
+.btn-block { width: 100%; }
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.tag {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  border: 1px solid transparent;
+}
+.tag.active { background: var(--moss-light); color: var(--moss-deep); border-color: rgba(62, 102, 80, 0.22); }
+.tag.amber { background: var(--amber-2); color: var(--amber-deep); }
+.tag.seal-tag { background: transparent; border: 1.5px solid var(--vermilion); color: var(--vermilion); border-radius: 6px; transform: rotate(-2deg); }
+
+.progress-demo { display: grid; gap: 14px; }
+.ink-track { height: 12px; border-radius: 999px; background: #e8e0cd; overflow: hidden; position: relative; }
+.ink-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--moss) 0%, #5b8770 60%, var(--celadon) 100%); position: relative; }
+.ink-fill::after {
+  content: "";
+  position: absolute; right: -1px; top: -2px; bottom: -2px;
+  width: 6px; border-radius: 50%;
+  background: rgba(255, 253, 246, 0.85);
+  filter: blur(1px);
+}
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-3); }
+.ring-demo { display: flex; align-items: center; gap: 18px; }
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--ink);
+  min-height: 56px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.option-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.option-card.selected { border-color: var(--moss); background: var(--moss-light); }
+.option-card .badge-key {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--paper-2); color: var(--ink-2);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; flex: none;
+}
+.option-card.selected .badge-key { background: var(--moss); color: #fff; }
+
+.node-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.node { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-serif); font-weight: 700; font-size: 16px; position: relative; }
+.node.done { background: var(--moss); color: #fff; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18); }
+.node.current { background: var(--amber); color: #3a2809; box-shadow: 0 0 0 5px rgba(224, 162, 60, 0.22); }
+.node.locked { background: #e5dfd0; color: #a29c8b; border: 1.5px dashed #bdb6a4; }
+.node small { position: absolute; bottom: -20px; font-size: 10px; color: var(--ink-3); font-family: var(--font-sans); font-weight: 400; white-space: nowrap; }
+
+.stars { display: inline-flex; gap: 4px; }
+.stars svg { display: block; }
+
+.nav-demo {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 8px 10px;
+}
+.nav-item { display: grid; justify-items: center; gap: 2px; font-size: 10px; color: var(--ink-3); padding: 6px 10px; border-radius: 12px; }
+.nav-item.active { color: var(--moss-deep); background: var(--moss-light); font-weight: 600; }
+
+.input-demo {
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  width: 100%;
+  resize: none;
+  min-height: 88px;
+}
+.input-demo::placeholder { color: #9a9585; }
+.input-label { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; display: block; }
+
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.badge-icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--amber-2); border: 2px solid #e5c47f; position: relative; }
+.badge-icon::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed #c9963c; }
+
+/* ---------- 吉祥物 ---------- */
+.mascot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.mascot-card { text-align: center; }
+.mascot-card .mascot { width: 150px; }
+.mascot-card h4 { margin-top: 10px; }
+.mascot-card p { font-size: 12px; margin: 4px 0 0; color: var(--ink-3); }
+.mascot-rules { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.rule { border-left: 2px solid var(--celadon); padding-left: 14px; }
+.rule b { font-size: 13px; }
+.rule p { font-size: 12px; margin: 4px 0 0; color: var(--ink-3); }
+
+/* ---------- 动效 ---------- */
+.motion-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.motion-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 20px; }
+.motion-demo { height: 70px; display: grid; place-items: center; }
+.motion-dot { width: 22px; height: 22px; border-radius: 50%; background: var(--moss); animation: bob 1.8s ease-in-out infinite; }
+.motion-line { width: 70%; height: 6px; border-radius: 999px; background: #e8e0cd; overflow: hidden; }
+.motion-line span { display: block; height: 100%; background: var(--amber); animation: sweep 2.2s ease-in-out infinite; }
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+@keyframes sweep { 0%{width:10%} 50%{width:86%} 100%{width:10%} }
+
+/* ---------- 手机高保真 ---------- */
+.screens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; justify-items: center; }
+.screen-block { width: 100%; display: grid; justify-items: center; }
+.screen-caption { margin-top: 18px; font-size: 13px; color: var(--ink-3); text-align: center; max-width: 380px; }
+.screen-caption b { color: var(--ink); font-family: var(--font-serif); display: block; font-size: 15px; margin-bottom: 2px; }
+
+.phone {
+  width: 375px;
+  height: 812px;
+  border-radius: 46px;
+  border: 10px solid #1d211b;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 50px 80px -50px rgba(35, 40, 31, 0.8), 0 0 0 1px rgba(35, 40, 31, 0.2);
+  flex: none;
+}
+.phone::before {
+  content: "";
+  position: absolute;
+  top: 10px; left: 50%; transform: translateX(-50%);
+  width: 108px; height: 26px;
+  background: #1d211b;
+  border-radius: 0 0 16px 16px;
+  z-index: 20;
+}
+.phone::after {
+  content: "";
+  position: absolute;
+  bottom: 7px; left: 50%; transform: translateX(-50%);
+  width: 122px; height: 4px;
+  background: rgba(35, 40, 31, 0.35);
+  border-radius: 999px;
+  z-index: 20;
+}
+.statusbar {
+  height: 46px;
+  padding: 14px 22px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.statusbar-icons { display: flex; gap: 5px; align-items: center; }
+
+.app-screen {
+  position: absolute;
+  inset: 46px 0 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(280px 200px at 100% 0%, rgba(157, 191, 176, 0.35) 0%, transparent 70%),
+    var(--paper);
+}
+.app-scroll { flex: 1; overflow: hidden; padding: 6px 20px 0; }
+
+/* 首页 */
+.home-hello { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 14px; }
+.home-hello .hi { font-size: 12px; color: var(--ink-3); letter-spacing: 0.08em; }
+.home-hello .name { font-family: var(--font-serif); font-size: 22px; font-weight: 700; }
+.home-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--moss-light); display: grid; place-items: center; border: 1.5px solid rgba(62, 102, 80, 0.25); }
+.streak {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--amber-2); color: var(--amber-deep);
+  border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700;
+}
+.hero-card {
+  position: relative;
+  border-radius: 28px;
+  padding: 22px 20px 20px;
+  background:
+    radial-gradient(220px 160px at 86% 18%, rgba(243, 217, 164, 0.75) 0%, transparent 68%),
+    linear-gradient(150deg, #3e6650 0%, #4e7a62 52%, #7ba58c 100%);
+  color: #fffdf6;
+  overflow: hidden;
+  box-shadow: 0 24px 40px -26px rgba(43, 74, 57, 0.9);
+}
+.hero-card .eyebrow-line { font-size: 10px; letter-spacing: 0.22em; opacity: 0.72; }
+.hero-card h3 { font-family: var(--font-serif); font-size: 26px; margin: 8px 0 4px; color: #fffdf6; }
+.hero-card p { font-size: 12px; color: rgba(255, 253, 246, 0.78); margin: 0 0 16px; }
+.hero-meta { display: flex; gap: 10px; font-size: 11px; color: rgba(255, 253, 246, 0.82); margin-bottom: 16px; }
+.hero-meta span { display: inline-flex; align-items: center; gap: 4px; background: rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 4px 9px; }
+.hero-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--paper); color: var(--moss-deep); border-radius: 999px; padding: 11px 18px; font-size: 13px; font-weight: 700; }
+.hero-mascot { position: absolute; right: -14px; bottom: -20px; width: 132px; opacity: 0.96; }
+.hero-stars { position: absolute; top: 18px; right: 18px; opacity: 0.9; }
+
+.section-row { display: flex; justify-content: space-between; align-items: baseline; padding: 24px 2px 10px; }
+.section-row h4 { font-family: var(--font-serif); font-size: 16px; }
+.section-row a { font-size: 11px; color: var(--ink-3); text-decoration: none; }
+.chapter-mini {
+  display: flex; gap: 12px; align-items: center;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 18px; padding: 12px;
+  margin-bottom: 10px;
+}
+.chapter-icon { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: none; background: var(--moss-light); }
+.chapter-mini h5 { margin: 0; font-size: 14px; font-family: var(--font-serif); }
+.chapter-mini p { margin: 2px 0 0; font-size: 11px; color: var(--ink-3); }
+.mini-bar { width: 100%; height: 5px; border-radius: 999px; background: #e9e2cf; margin-top: 6px; overflow: hidden; }
+.mini-bar span { display: block; height: 100%; border-radius: 999px; background: var(--moss); }
+
+.daily-strip {
+  display: flex; align-items: center; gap: 12px;
+  border: 1.5px dashed rgba(169, 111, 31, 0.45);
+  background: rgba(243, 217, 164, 0.28);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+.daily-strip h5 { margin: 0; font-size: 13px; font-family: var(--font-serif); }
+.daily-strip p { margin: 2px 0 0; font-size: 11px; color: var(--amber-deep); }
+.daily-strip .go { margin-left: auto; font-size: 12px; color: var(--amber-deep); font-weight: 700; }
+
+.tabbar {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 14px;
+  height: 68px;
+  background: rgba(255, 253, 246, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 18px 30px -22px rgba(35, 40, 31, 0.7);
+}
+.tabbar-item { display: grid; justify-items: center; gap: 3px; font-size: 9px; color: var(--ink-3); }
+.tabbar-item.active { color: var(--moss-deep); font-weight: 700; }
+.tabbar-item.active svg { transform: translateY(-1px); }
+
+/* 地图页 */
+.map-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 12px; }
+.icon-btn { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--card); border: 1px solid var(--line); }
+.map-title { text-align: center; }
+.map-title .k { font-size: 10px; color: var(--ink-3); letter-spacing: 0.14em; }
+.map-title .t { font-family: var(--font-serif); font-size: 16px; font-weight: 700; }
+.leaf-count { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 700; color: var(--moss-deep); }
+.map-canvas {
+  position: relative;
+  height: 470px;
+  margin-top: 4px;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    radial-gradient(220px 160px at 78% 18%, rgba(243, 217, 164, 0.5) 0%, transparent 70%),
+    linear-gradient(180deg, #eaf0e4 0%, #dde7df 55%, #cbdccf 100%);
+  border: 1px solid rgba(62, 102, 80, 0.12);
+}
+.map-canvas svg.path { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-node { position: absolute; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-serif); font-weight: 700; font-size: 15px; transform: translate(-50%, -50%); box-shadow: 0 6px 0 rgba(35, 40, 31, 0.16); }
+.map-node.done { background: var(--moss); color: #fff; }
+.map-node.current { background: var(--amber); color: #3a2809; box-shadow: 0 0 0 7px rgba(224, 162, 60, 0.24), 0 6px 0 #b97423; }
+.map-node.locked { background: #e6e0d0; color: #a8a190; border: 1.5px dashed #bdb6a4; }
+.map-label { position: absolute; transform: translate(-50%, 0); font-size: 10px; color: var(--ink-2); background: rgba(255, 253, 246, 0.86); padding: 3px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid rgba(35, 40, 31, 0.08); }
+.map-mascot { position: absolute; width: 78px; transform: translate(-50%, -100%); }
+.map-fog { position: absolute; left: -10%; right: -10%; bottom: -30px; height: 120px; background: radial-gradient(closest-side, rgba(255, 253, 246, 0.85), rgba(255, 253, 246, 0)); }
+
+.level-sheet {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 12px;
+  background: rgba(255, 253, 246, 0.97);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 24px 40px -26px rgba(35, 40, 31, 0.6);
+}
+.level-sheet .grab { width: 36px; height: 4px; border-radius: 999px; background: #ddd6c4; margin: 0 auto 12px; }
+.level-sheet .lvl { display: flex; justify-content: space-between; align-items: flex-start; }
+.level-sheet h4 { font-family: var(--font-serif); font-size: 18px; margin: 0; }
+.level-sheet p { font-size: 11px; color: var(--ink-3); margin: 3px 0 0; }
+.level-sheet .start { width: 100%; margin-top: 14px; }
+
+/* ---------- 对照表 ---------- */
+.compare-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius-l); overflow: hidden; box-shadow: var(--shadow-m); }
+.compare-table th, .compare-table td { text-align: left; padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.compare-table th { background: var(--paper-2); font-family: var(--font-serif); font-size: 12px; letter-spacing: 0.04em; }
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table td:first-child { font-weight: 600; }
+
+/* ---------- 确认区 ---------- */
+.confirm-box {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  margin: 40px 0 72px;
+}
+.confirm-box h2 { color: var(--paper); }
+.confirm-box p { color: rgba(247, 242, 228, 0.75); }
+.confirm-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 24px; margin-top: 24px; }
+.confirm-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: rgba(247, 242, 228, 0.86); }
+.confirm-item span.box { width: 18px; height: 18px; border: 1.5px solid rgba(247, 242, 228, 0.5); border-radius: 5px; flex: none; margin-top: 2px; }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 48px; font-size: 12px; color: var(--ink-3); }
+footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1080px) {
+  .cover-grid { grid-template-columns: 1fr; gap: 20px; }
+  .mascot-stage { min-height: 300px; }
+  .mood-grid { grid-template-columns: repeat(2, 1fr); }
+  .swatch-grid { grid-template-columns: repeat(3, 1fr); }
+  .screens { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .grid-3, .mascot-grid, .motion-grid, .motif-grid { grid-template-columns: 1fr; }
+  .component-grid { grid-template-columns: 1fr; }
+  .type-spec { grid-template-columns: 1fr; }
+  .swatch-grid { grid-template-columns: repeat(2, 1fr); }
+  .compare-table { display: block; overflow-x: auto; }
+  .confirm-list { grid-template-columns: 1fr; }
+  .topnav { display: none; }
+  .section { padding-top: 56px; }
+}
+@media (max-width: 480px) {
+  .wrap { padding: 0 18px; }
+  .phone { width: 340px; height: 736px; border-width: 8px; }
+  .app-screen { inset: 40px 0 0; }
+  .hero-mascot { width: 110px; }
+  .mascot-rules { grid-template-columns: 1fr; }
+  .hero-card h3 { font-size: 23px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 200 200" aria-hidden="true">
+        <path d="M150 140C180 130 190 100 175 80" stroke="#23281f" stroke-width="16" fill="none" stroke-linecap="round"/>
+        <ellipse cx="100" cy="132" rx="50" ry="44" fill="#23281f"/>
+        <circle cx="100" cy="90" r="46" fill="#23281f"/>
+        <path d="M64 58L60 24l28 20z" fill="#23281f"/><path d="M136 58l4-34-28 20z" fill="#23281f"/>
+        <ellipse cx="82" cy="86" rx="11" ry="13" fill="#e0a23c"/><ellipse cx="118" cy="86" rx="11" ry="13" fill="#e0a23c"/>
+        <ellipse cx="82" cy="86" rx="4" ry="8" fill="#23281f"/><ellipse cx="118" cy="86" rx="4" ry="8" fill="#23281f"/>
+      </svg>
+      墨灵闯关
+    </div>
+    <nav class="topnav" aria-label="页面导航">
+      <a href="#concept">设计理念</a>
+      <a href="#mood">情绪板</a>
+      <a href="#color">色彩</a>
+      <a href="#type">字体</a>
+      <a href="#components">组件</a>
+      <a href="#mascot">吉祥物</a>
+      <a href="#screens">关键页</a>
+      <a href="#confirm">确认清单</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ================= 封面 ================= -->
+  <section class="cover wrap">
+    <div class="cover-grid">
+      <div>
+        <div class="cover-kicker">
+          <span style="width:6px;height:6px;border-radius:50%;background:#3e6650"></span>
+          UI DIRECTION · v0.1 · 待人工确认
+        </div>
+        <h1>
+          把知识点<br />
+          变成<span class="hand underline-brush">一场森林冒险</span>
+        </h1>
+        <p class="cover-sub">
+          以《罗小黑》的日常、森林与墨色为意境参考，做一套原创的治愈手绘闯关 UI：
+          纸感底、墨线、猫灵伙伴，让「学习」像在雾林里散步，而不是在题海里挣扎。
+        </p>
+        <div class="chip-row">
+          <span class="chip"><span class="dot"></span>宣纸肌理</span>
+          <span class="chip"><span class="dot"></span>墨绿 × 琥珀</span>
+          <span class="chip"><span class="dot"></span>原创猫灵「墨团」</span>
+          <span class="chip gold"><span class="dot"></span>章节地图 · 逐关解锁</span>
+        </div>
+        <div class="cover-note">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#626a5c" stroke-width="1.6" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><circle cx="12" cy="16.4" r=".9" fill="#626a5c" stroke="none"/>
+          </svg>
+          <span>本文件是「风格 + 线框」评审稿，不是最终原型。确认方向后，我再产出核心流程 / AI 生成 / 成长社交三套高保真 HTML 原型。</span>
+        </div>
+      </div>
+      <div class="mascot-stage">
+        <svg class="mascot" viewBox="0 0 260 260" role="img" aria-label="原创吉祥物墨团：一只黑色猫灵，琥珀色眼睛，毛笔状尾巴">
+          <ellipse cx="130" cy="238" rx="62" ry="9" fill="#23281f" opacity="0.1"/>
+          <!-- tail -->
+          <path d="M196 186c34-8 44-44 24-68" stroke="#23281f" stroke-width="20" fill="none" stroke-linecap="round"/>
+          <path d="M196 186c34-8 44-44 24-68" stroke="#3e6650" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.35"/>
+          <!-- body -->
+          <ellipse cx="130" cy="176" rx="58" ry="50" fill="#23281f"/>
+          <ellipse cx="130" cy="190" rx="26" ry="20" fill="#f7f2e4" opacity="0.95"/>
+          <!-- head -->
+          <circle cx="130" cy="118" r="54" fill="#23281f"/>
+          <path d="M86 84L80 44l34 24z" fill="#23281f"/>
+          <path d="M174 84l6-40-34 24z" fill="#23281f"/>
+          <path d="M88 78C84 60 84 54 86 50" stroke="#bf5b42" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <path d="M172 78c4-18 4-24 1-28" stroke="#bf5b42" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <!-- eyes -->
+          <ellipse cx="108" cy="112" rx="14" ry="16" fill="#e0a23c"/>
+          <ellipse cx="152" cy="112" rx="14" ry="16" fill="#e0a23c"/>
+          <ellipse cx="108" cy="112" rx="4.5" ry="9" fill="#23281f"/>
+          <ellipse cx="152" cy="112" rx="4.5" ry="9" fill="#23281f"/>
+          <circle cx="103" cy="105" r="3.2" fill="#fffdf6" opacity="0.95"/>
+          <circle cx="147" cy="105" r="3.2" fill="#fffdf6" opacity="0.95"/>
+          <!-- muzzle -->
+          <ellipse cx="130" cy="134" rx="24" ry="15" fill="#f7f2e4" opacity="0.96"/>
+          <path d="M125 132q5 5 10 0" stroke="#23281f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <ellipse cx="130" cy="126" rx="4" ry="2.6" fill="#bf5b42"/>
+          <!-- blush -->
+          <ellipse cx="88" cy="130" rx="8" ry="5" fill="#bf5b42" opacity="0.28"/>
+          <ellipse cx="172" cy="130" rx="8" ry="5" fill="#bf5b42" opacity="0.28"/>
+          <!-- whiskers -->
+          <path d="M96 138l-20 5M96 144l-18 10" stroke="#f7f2e4" stroke-width="1.6" opacity="0.65" stroke-linecap="round"/>
+          <path d="M164 138l20 5M164 144l18 10" stroke="#f7f2e4" stroke-width="1.6" opacity="0.65" stroke-linecap="round"/>
+          <!-- floating leaves -->
+          <path d="M46 96c14-2 22 6 20 18-12 4-22-4-20-18z" fill="#9dbfb0" opacity="0.8"/>
+          <path d="M206 52c12-4 22 2 24 12-10 6-22 1-24-12z" fill="#e0a23c" opacity="0.7"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 设计理念 ================= -->
+  <section class="section wrap" id="concept">
+    <div class="section-head">
+      <div class="eyebrow">01 · Concept</div>
+      <h2>不是在闯关，是在<span class="hand">陪一只猫灵散步</span></h2>
+      <p class="lead">
+        《罗小黑》的动人之处不在打斗，而在日常：雾、树影、路边的小妖怪、一人一猫的沉默陪伴。
+        这套 UI 把「学习进度」翻译成「森林里的路」，把「AI」拟人化成一只会陪你走的猫灵。
+      </p>
+    </div>
+    <div class="grid-3">
+      <article class="paper-card concept-card tilt-a">
+        <h3><span class="concept-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 18c3-6 5-9 8-9s5 3 8 9"/><path d="M4 20h16"/><circle cx="12" cy="6" r="2.2"/></svg>
+        </span>雾林感</h3>
+        <p>低饱和的绿、灰蓝与米白，像清晨森林的漫射光。大面积留白，不堆装饰，让注意力落在题目上。</p>
+      </article>
+      <article class="paper-card concept-card tilt-b">
+        <h3><span class="concept-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        </span>纸与墨</h3>
+        <p>宣纸底纹、微旋转的卡片、手绘下划线、朱砂印章。所有"不完美"都是刻意保留的手作感，而不是脏。</p>
+      </article>
+      <article class="paper-card concept-card tilt-a">
+        <h3><span class="concept-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 20c-4 0-7-2.7-7-6.5C5 9 8 6 12 6s7 3 7 7.5C19 17.3 16 20 12 20z"/><path d="M9 5l-1-2M15 5l1-2"/></svg>
+        </span>猫灵作伴</h3>
+        <p>墨团不是装饰：它会在生成时思考、答错时蹲下来、通关时打滚。它是 AI 的人格化载体，也是情绪缓冲。</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= 情绪板 ================= -->
+  <section class="section wrap" id="mood">
+    <div class="section-head">
+      <div class="eyebrow">02 · Moodboard</div>
+      <h2>四个视觉基因</h2>
+      <p class="lead">不直接使用任何官方剧照或角色形象，只提取「雾林、宣纸、墨迹、琥珀光」四种质感，重建一套原创视觉语言。</p>
+    </div>
+    <div class="mood-grid">
+      <figure class="mood-tile mood-fog">
+        <svg viewBox="0 0 200 160" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 160V96l28-34 22 26 20-42 26 46 18-22 30 38 20-18 36 40v30z" fill="#6f8f7a" opacity="0.55"/>
+          <path d="M0 160v-30l34-18 28 14 30-22 34 20 30-12 44 20v28z" fill="#4c6f5c" opacity="0.5"/>
+        </svg>
+        <figcaption>雾林 · 漫射光</figcaption>
+      </figure>
+      <figure class="mood-tile mood-paper">
+        <figcaption>宣纸 · 纤维</figcaption>
+      </figure>
+      <figure class="mood-tile mood-ink">
+        <svg viewBox="0 0 200 260" aria-hidden="true">
+          <path d="M28 196c22-14 30-46 52-58 26-14 50 6 58 26 9 22-8 38-30 40-26 3-40-12-58 0-12 8-16 20-22 16z" fill="#23281f" opacity="0.82"/>
+          <path d="M120 60c18-6 30 2 32 14-14 8-30 2-32-14z" fill="#3e6650" opacity="0.55"/>
+          <circle cx="152" cy="196" r="5" fill="#23281f" opacity="0.5"/>
+          <circle cx="168" cy="180" r="2.5" fill="#23281f" opacity="0.4"/>
+        </svg>
+        <figcaption>墨迹 · 飞白</figcaption>
+      </figure>
+      <figure class="mood-tile mood-amber">
+        <svg viewBox="0 0 200 260" aria-hidden="true">
+          <ellipse cx="100" cy="128" rx="46" ry="56" fill="#23281f" opacity="0.92"/>
+          <ellipse cx="100" cy="128" rx="17" ry="40" fill="#f3d9a4" opacity="0.92"/>
+          <ellipse cx="100" cy="128" rx="7" ry="26" fill="#23281f"/>
+          <circle cx="94" cy="104" r="4" fill="#fffdf6" opacity="0.9"/>
+        </svg>
+        <figcaption>琥珀 · 猫瞳</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= 色彩 ================= -->
+  <section class="section wrap" id="color">
+    <div class="section-head">
+      <div class="eyebrow">03 · Color</div>
+      <h2>一套能"呼吸"的纸感配色</h2>
+      <p class="lead">主色是森林墨绿，强调色是猫瞳琥珀，朱砂只用于印章与警示。所有正文颜色对比度 ≥ 4.5:1，不用纯黑纯白。</p>
+    </div>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="swatch-color" style="background:#f7f2e4"></div>
+        <div class="swatch-meta"><div class="swatch-name">宣纸</div><div class="swatch-hex">#F7F2E4</div><div class="swatch-use">全局背景 · 卡片外的留白</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#fffdf6"></div>
+        <div class="swatch-meta"><div class="swatch-name">素笺</div><div class="swatch-hex">#FFFDF6</div><div class="swatch-use">卡片 · 弹层 · 输入框</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#23281f"></div>
+        <div class="swatch-meta"><div class="swatch-name">松烟</div><div class="swatch-hex">#23281F</div><div class="swatch-use">正文 · 描边 · 猫灵</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#3e6650"></div>
+        <div class="swatch-meta"><div class="swatch-name">苔绿</div><div class="swatch-hex">#3E6650</div><div class="swatch-use">主按钮 · 已完成节点 · 链接</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#9dbfb0"></div>
+        <div class="swatch-meta"><div class="swatch-name">青瓷</div><div class="swatch-hex">#9DBFB0</div><div class="swatch-use">分区底 · 路径 · 次要图形</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#e0a23c"></div>
+        <div class="swatch-meta"><div class="swatch-name">琥珀</div><div class="swatch-hex">#E0A23C</div><div class="swatch-use">当前关卡 · 经验 · 猫瞳</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#bf5b42"></div>
+        <div class="swatch-meta"><div class="swatch-name">朱砂</div><div class="swatch-hex">#BF5B42</div><div class="swatch-use">印章 · 错误 · 重要提醒</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#dbe7dc"></div>
+        <div class="swatch-meta"><div class="swatch-name">苔痕</div><div class="swatch-hex">#DBE7DC</div><div class="swatch-use">选中态 · 浅色标签底</div></div></div>
+    </div>
+    <p class="contrast-note">
+      对比度实测：松烟 / 宣纸 ≈ 13.6:1；苔绿 / 素笺 ≈ 6.4:1；白字 / 苔绿 ≈ 6.2:1；琥珀仅用于大字号或图形，不用于正文。
+      深色模式暂不做（IP 的治愈感依赖纸白），K12 场景也不适合夜间强对比。
+    </p>
+  </section>
+
+  <!-- ================= 字体 ================= -->
+  <section class="section wrap" id="type">
+    <div class="section-head">
+      <div class="eyebrow">04 · Typography</div>
+      <h2>毛笔题字，宋体正文</h2>
+      <p class="lead">标题用「马善政毛笔体」制造手写气息，正文用「思源宋体」保证长文阅读；数字与 UI 标签回落系统无衬线。</p>
+    </div>
+    <div class="type-spec">
+      <div class="type-demo">
+        <div class="type-row"><span class="type-label">Display / 48</span><span class="type-sample-hand">雾林深处</span></div>
+        <div class="type-row"><span class="type-label">Title / 30</span><span class="type-sample-h">第三章 · 栈与队列</span></div>
+        <div class="type-row"><span class="type-label">Body / 16</span><span class="type-sample-body">用你自己的话，说说强缓存与协商缓存的区别。</span></div>
+        <div class="type-row"><span class="type-label">Meta / 13</span><span class="type-sample-small">5 题 · 约 4 分钟 · 已获 2 星</span></div>
+      </div>
+      <div class="paper-card">
+        <h3 style="font-size:16px;margin-bottom:14px">字号与行高</h3>
+        <div class="scale-list">
+          <div class="scale-item"><span>章节大标题</span><b>40 / 1.25</b></div>
+          <div class="scale-item"><span>页面标题</span><b>28 / 1.3</b></div>
+          <div class="scale-item"><span>卡片标题</span><b>20 / 1.4</b></div>
+          <div class="scale-item"><span>题干</span><b>19 / 1.65</b></div>
+          <div class="scale-item"><span>正文</span><b>15 / 1.75</b></div>
+          <div class="scale-item"><span>辅助信息</span><b>12 / 1.6</b></div>
+          <div class="scale-item"><span>最小点击区</span><b>48 × 48</b></div>
+        </div>
+        <p class="muted" style="margin-top:16px">
+          字体回退：Ma Shan Zheng → STKaiti → KaiTi；Noto Serif SC → Songti SC → STSong。
+          离线环境会自动落到系统楷体/宋体，仍有手写与纸感。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 图形语言 ================= -->
+  <section class="section wrap" id="motifs">
+    <div class="section-head">
+      <div class="eyebrow">05 · Graphic Language</div>
+      <h2>四种可复用的"手作"元素</h2>
+      <p class="lead">它们是整套 UI 的识别符号：不用图片素材，全部 CSS/SVG 实现，任意分辨率都清晰。</p>
+    </div>
+    <div class="motif-grid">
+      <div class="motif">
+        <div class="motif-visual"><span class="tape">今日 · 雾林</span></div>
+        <div class="motif-name">纸胶带</div>
+        <div class="motif-desc">用于"今日挑战""新关卡"等临时标签，半透明琥珀、两端虚线，轻微旋转。</div>
+      </div>
+      <div class="motif">
+        <div class="motif-visual"><span class="seal">通关</span></div>
+        <div class="motif-name">朱砂印章</div>
+        <div class="motif-desc">通关、满星、成就的确认符号。只用朱砂色，旋转 -6°，带做旧缺口。</div>
+      </div>
+      <div class="motif">
+        <div class="motif-visual">
+          <svg width="150" height="40" viewBox="0 0 150 40" aria-hidden="true">
+            <path d="M4 28c22-8 34 6 56-2s36 4 58-4" stroke="#3e6650" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.75"/>
+            <path d="M10 34c24-6 40 2 62-3" stroke="#9dbfb0" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+          </svg>
+        </div>
+        <div class="motif-name">墨线 & 飞白</div>
+        <div class="motif-desc">分隔线、标题下划线、路径都用两笔不规则的线，而不是 1px 直线。</div>
+      </div>
+      <div class="motif">
+        <div class="motif-visual">
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <svg width="46" height="46" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 34c-8 0-13-5-13-12S12 8 20 8s13 7 13 14-5 12-13 12z" fill="#9dbfb0" opacity=".7"/><path d="M20 8c0-4 2-6 2-6" stroke="#3e6650" stroke-width="2"/></svg>
+            <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30c8-4 12-12 20-14 4 8-2 18-12 20-4 1-7-2-8-6z" fill="#e0a23c" opacity=".75"/></svg>
+            <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="10" fill="#3e6650" opacity=".5"/><circle cx="20" cy="20" r="4" fill="#f7f2e4"/></svg>
+          </div>
+        </div>
+        <div class="motif-name">叶片 · 苔点</div>
+        <div class="motif-desc">空状态、加载、通关庆祝的轻量装饰；绝不遮挡文字与按钮。</div>
+      </div>
+      <div class="motif">
+        <div class="motif-visual">
+          <div style="display:flex;gap:14px;align-items:center">
+            <div class="badge-icon">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a96f1f" stroke-width="1.6"><path d="M12 3l2.2 5.3 5.8.5-4.4 3.8 1.3 5.7L12 15.9 6.9 18.3l1.3-5.7L4 8.8l5.8-.5z"/></svg>
+            </div>
+            <div class="stars" aria-label="三星">
+              <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e8e0cd"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="motif-name">星级 · 徽章</div>
+        <div class="motif-desc">三星制（正确率 60/80/100），徽章用"圆形 + 虚线内环"统一，避免廉价渐变。</div>
+      </div>
+      <div class="motif">
+        <div class="motif-visual">
+          <div style="width:132px;height:76px;border-radius:10px;background:#fffdf6;border:1px solid rgba(35,40,31,.18);box-shadow:0 8px 16px -10px rgba(35,40,31,.5);transform:rotate(-3deg);padding:8px 10px">
+            <div style="font-family:var(--font-hand);font-size:15px;color:#3e6650">第 3 关</div>
+            <div style="font-size:8px;color:#626a5c;margin-top:2px">栈与队列 · ★★☆</div>
+          </div>
+        </div>
+        <div class="motif-name">闯关卡牌</div>
+        <div class="motif-desc">分享图与地图节点的统一符号：小纸卡 + 手写关卡名 + 星级，可旋转摆放。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 组件 ================= -->
+  <section class="section wrap" id="components">
+    <div class="section-head">
+      <div class="eyebrow">06 · Components</div>
+      <h2>可复用的核心组件</h2>
+      <p class="lead">全部按 48px 最小点击区、可见焦点、按下位移 1–3px 设计。按钮的"厚度"来自实色投影，而不是模糊阴影。</p>
+    </div>
+    <div class="component-grid">
+      <div class="component-block">
+        <h4>按钮 <span>BTN / 48H</span></h4>
+        <div class="btn-row">
+          <button class="btn btn-primary">开始闯关</button>
+          <button class="btn btn-ghost">查看解析</button>
+          <button class="btn btn-amber">领取奖励</button>
+          <button class="btn btn-disabled" disabled>下一关</button>
+        </div>
+        <p class="muted" style="margin:14px 0 0">主按钮苔绿实色 + 底部 4px 深色投影；hover 上浮 1px，active 下沉 3px，位移不改变布局。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>标签与状态 <span>TAG</span></h4>
+        <div class="tag-row">
+          <span class="tag">全部</span>
+          <span class="tag active">进行中</span>
+          <span class="tag amber">新关卡</span>
+          <span class="tag seal-tag">已通关</span>
+          <span class="tag">错题 3</span>
+        </div>
+        <p class="muted" style="margin:14px 0 0">印章标签只用于"已通关/满星"，不可滥用到普通分类，否则失去仪式感。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>墨迹进度 <span>PROGRESS</span></h4>
+        <div class="progress-demo">
+          <div>
+            <div class="progress-label"><span>本章进度</span><span>3 / 6 关</span></div>
+            <div class="ink-track"><div class="ink-fill" style="width:50%"></div></div>
+          </div>
+          <div>
+            <div class="progress-label"><span>今日经验</span><span>120 / 200</span></div>
+            <div class="ink-track"><div class="ink-fill" style="width:60%;background:linear-gradient(90deg,#b97423,#e0a23c)"></div></div>
+          </div>
+        </div>
+        <p class="muted" style="margin:14px 0 0">进度条右端有一小团"墨晕"，表示笔锋；经验条用琥珀，与正确率概念区分。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>答题选项 <span>OPTION</span></h4>
+        <div style="display:grid;gap:8px">
+          <div class="option-card selected"><span class="badge-key">A</span><span>强缓存命中时，浏览器不会发起网络请求</span></div>
+          <div class="option-card"><span class="badge-key">B</span><span>ETag 属于强缓存</span></div>
+          <div class="option-card"><span class="badge-key">C</span><span>协商缓存由 max-age 控制</span></div>
+        </div>
+        <p class="muted" style="margin:12px 0 0">选中态用苔痕底 + 苔绿描边 + 实心字母，不依赖单一颜色（同时有边框与填充变化）。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>关卡节点 <span>MAP NODE</span></h4>
+        <div class="node-row" style="padding:10px 4px 26px">
+          <div class="node done">✓<small>已完成</small></div>
+          <div class="node current">3<small>当前</small></div>
+          <div class="node locked">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            <small>未解锁</small>
+          </div>
+        </div>
+        <p class="muted">当前关用琥珀 + 外发光；锁定态用虚线而非降低不透明度，保证弱视也能分辨。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>星级与徽章 <span>STAR / BADGE</span></h4>
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+          <div class="stars" aria-label="三星中的两星">
+            <svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e8e0cd"/></svg>
+          </div>
+          <div class="badge-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a96f1f" stroke-width="1.5" aria-hidden="true"><path d="M12 20c-4 0-7-2.7-7-6.5C5 9 8 6 12 6s7 3 7 7.5C19 17.3 16 20 12 20z"/><path d="M9 5L8 3M15 5l1-2"/><circle cx="9.5" cy="12" r="1" fill="#a96f1f"/><circle cx="14.5" cy="12" r="1" fill="#a96f1f"/></svg>
+          </div>
+        </div>
+        <p class="muted" style="margin:14px 0 0">三星阈值 60 / 80 / 100；空星用纸色描边而不是灰色，避免"失败感"过强。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>底部导航 <span>TABBAR</span></h4>
+        <div class="nav-demo">
+          <div class="nav-item active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 18c3-6 5-9 8-9s5 3 8 9"/><path d="M4 20h16"/></svg>
+            闯关
+          </div>
+          <div class="nav-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M15 9l-2 5-4 1 2-5z"/></svg>
+            探索
+          </div>
+          <div class="nav-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M8 8h8M8 12h6"/></svg>
+            错题
+          </div>
+          <div class="nav-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="9" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>
+            我的
+          </div>
+        </div>
+        <p class="muted" style="margin:14px 0 0">4 个 tab，不超过 5 个；激活态用苔痕胶囊底，图标同族线性 1.7px。</p>
+      </div>
+
+      <div class="component-block">
+        <h4>输入与反馈 <span>INPUT / TOAST</span></h4>
+        <label class="input-label" for="demo-topic">我想学的知识点</label>
+        <textarea class="input-demo" id="demo-topic" placeholder="例如：HTTP 强缓存与协商缓存的区别">HTTP 强缓存与协商缓存的区别</textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+          <span class="toast">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            已加入今日计划
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 吉祥物 ================= -->
+  <section class="section wrap" id="mascot">
+    <div class="section-head">
+      <div class="eyebrow">07 · Mascot</div>
+      <h2>原创猫灵「墨团」</h2>
+      <p class="lead">
+        黑猫形态、毛笔尾巴、琥珀大眼、胸口一撮白毛。它是 AI 的化身，不是《罗小黑》的角色：不复制耳朵比例、花纹与配色细节，
+        只保留"黑猫 + 精灵 + 陪伴"的意境。
+      </p>
+    </div>
+    <div class="mascot-grid">
+      <div class="paper-card mascot-card tilt-a">
+        <svg class="mascot" viewBox="0 0 260 260" aria-hidden="true">
+          <ellipse cx="130" cy="238" rx="60" ry="9" fill="#23281f" opacity="0.1"/>
+          <path d="M196 186c34-8 44-44 24-68" stroke="#23281f" stroke-width="20" fill="none" stroke-linecap="round"/>
+          <ellipse cx="130" cy="176" rx="58" ry="50" fill="#23281f"/>
+          <ellipse cx="130" cy="190" rx="26" ry="20" fill="#f7f2e4" opacity="0.95"/>
+          <circle cx="130" cy="118" r="54" fill="#23281f"/>
+          <path d="M86 84L80 44l34 24z" fill="#23281f"/><path d="M174 84l6-40-34 24z" fill="#23281f"/>
+          <ellipse cx="108" cy="112" rx="14" ry="16" fill="#e0a23c"/><ellipse cx="152" cy="112" rx="14" ry="16" fill="#e0a23c"/>
+          <ellipse cx="108" cy="112" rx="4.5" ry="9" fill="#23281f"/><ellipse cx="152" cy="112" rx="4.5" ry="9" fill="#23281f"/>
+          <circle cx="103" cy="105" r="3" fill="#fffdf6"/><circle cx="147" cy="105" r="3" fill="#fffdf6"/>
+          <ellipse cx="130" cy="134" rx="24" ry="15" fill="#f7f2e4" opacity="0.96"/>
+          <path d="M125 132q5 5 10 0" stroke="#23281f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <ellipse cx="130" cy="126" rx="4" ry="2.6" fill="#bf5b42"/>
+        </svg>
+        <h4>待机</h4>
+        <p>首页、加载页。缓慢上下浮动，幅度 12px / 5s。</p>
+      </div>
+      <div class="paper-card mascot-card tilt-b">
+        <svg class="mascot" viewBox="0 0 260 260" aria-hidden="true">
+          <ellipse cx="130" cy="238" rx="60" ry="9" fill="#23281f" opacity="0.1"/>
+          <path d="M196 186c34-8 44-44 24-68" stroke="#23281f" stroke-width="20" fill="none" stroke-linecap="round"/>
+          <path d="M196 186c40-12 52-52 26-76" stroke="#e0a23c" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <ellipse cx="130" cy="176" rx="58" ry="50" fill="#23281f"/>
+          <ellipse cx="130" cy="190" rx="26" ry="20" fill="#f7f2e4" opacity="0.95"/>
+          <circle cx="130" cy="118" r="54" fill="#23281f"/>
+          <path d="M86 84L80 44l34 24z" fill="#23281f"/><path d="M174 84l6-40-34 24z" fill="#23281f"/>
+          <path d="M98 112q10-10 20 0" stroke="#e0a23c" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M142 112q10-10 20 0" stroke="#e0a23c" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="130" cy="136" rx="24" ry="16" fill="#f7f2e4" opacity="0.96"/>
+          <path d="M120 132q10 10 20 0" stroke="#23281f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <ellipse cx="88" cy="130" rx="9" ry="5" fill="#bf5b42" opacity="0.32"/>
+          <ellipse cx="172" cy="130" rx="9" ry="5" fill="#bf5b42" opacity="0.32"/>
+          <path d="M40 70l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" fill="#e0a23c" opacity="0.8"/>
+        </svg>
+        <h4>开心</h4>
+        <p>通关、满星、连续学习。眼睛变月牙，尾巴翘起。</p>
+      </div>
+      <div class="paper-card mascot-card tilt-a">
+        <svg class="mascot" viewBox="0 0 260 260" aria-hidden="true">
+          <ellipse cx="130" cy="238" rx="60" ry="9" fill="#23281f" opacity="0.1"/>
+          <path d="M196 186c26-2 40-28 34-54" stroke="#23281f" stroke-width="20" fill="none" stroke-linecap="round"/>
+          <ellipse cx="130" cy="176" rx="58" ry="50" fill="#23281f"/>
+          <ellipse cx="130" cy="190" rx="26" ry="20" fill="#f7f2e4" opacity="0.95"/>
+          <circle cx="130" cy="118" r="54" fill="#23281f"/>
+          <path d="M86 84L80 44l34 24z" fill="#23281f"/><path d="M174 84l6-40-34 24z" fill="#23281f"/>
+          <ellipse cx="108" cy="112" rx="14" ry="9" fill="#e0a23c"/>
+          <ellipse cx="152" cy="112" rx="14" ry="16" fill="#e0a23c"/>
+          <ellipse cx="108" cy="112" rx="4.5" ry="6" fill="#23281f"/><ellipse cx="152" cy="112" rx="4.5" ry="9" fill="#23281f"/>
+          <circle cx="147" cy="105" r="3" fill="#fffdf6"/>
+          <ellipse cx="130" cy="134" rx="24" ry="15" fill="#f7f2e4" opacity="0.96"/>
+          <path d="M126 134h8" stroke="#23281f" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M186 46c8-6 20-2 20 8 0 8-10 10-14 5s0-12 8-14" stroke="#3e6650" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+          <text x="196" y="84" font-family="Noto Serif SC, serif" font-size="26" fill="#3e6650" opacity=".75">?</text>
+        </svg>
+        <h4>思考</h4>
+        <p>AI 生成中、简答题批改中。一只眼眯起，头顶冒墨圈。</p>
+      </div>
+    </div>
+    <div class="mascot-rules">
+      <div class="rule"><b>只做"陪伴"，不做"监督"</b><p>不说"你又错了"，改说"这一处我们再看看"。答错时墨团蹲下，而不是摇头。</p></div>
+      <div class="rule"><b>每屏最多出现一次</b><p>吉祥物是情绪锚点，不是贴纸。地图页只在当前节点旁出现一只。</p></div>
+      <div class="rule"><b>不遮挡信息</b><p>墨团永远在留白区或卡片角落，不覆盖题干、选项与按钮；缩小到 56px 仍可辨识。</p></div>
+    </div>
+  </section>
+
+  <!-- ================= 动效 ================= -->
+  <section class="section wrap" id="motion">
+    <div class="section-head">
+      <div class="eyebrow">08 · Motion</div>
+      <h2>像纸一样轻的动效</h2>
+      <p class="lead">所有动效服务于"反馈"和"空间关系"，不做无意义的炫技。时长 140–320ms，缓动以 ease-out 为主。</p>
+    </div>
+    <div class="motion-grid">
+      <div class="motion-card">
+        <div class="motion-demo"><div class="motion-dot"></div></div>
+        <h4>漂浮 · 待机</h4>
+        <p class="muted">5.2s 循环，±12px，用于猫灵；同时最多一个元素在做，避免眩晕。</p>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo"><div class="motion-line"><span></span></div></div>
+        <h4>墨迹生长 · 进度</h4>
+        <p class="muted">进度变化 320ms ease-out；数字用 200ms 滚动，不跳变。</p>
+      </div>
+      <div class="motion-card">
+        <div class="motion-demo" style="display:flex;gap:8px;align-items:center">
+          <div style="width:56px;height:40px;border-radius:8px;background:#3e6650;animation:bob 2.6s ease-in-out infinite"></div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#626a5c" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <div style="width:56px;height:40px;border-radius:8px;background:#dbe7dc;border:1px solid rgba(62,102,80,.3)"></div>
+        </div>
+        <h4>翻页 · 转场</h4>
+        <p class="muted">答题下一题：横向 24px + 淡入 240ms；通关：印章落下 320ms，带回弹。</p>
+      </div>
+    </div>
+    <p class="contrast-note" style="margin-top:20px">
+      尊重 <code>prefers-reduced-motion</code>：关闭漂浮、回弹与印章动画，仅保留即时状态切换。
+      所有按下反馈在 80–150ms 内出现，且不改变布局尺寸。
+    </p>
+  </section>
+
+  <!-- ================= 关键页示意 ================= -->
+  <section class="section wrap" id="screens">
+    <div class="section-head">
+      <div class="eyebrow">09 · Key Screens</div>
+      <h2>两个关键页，先把气质定住</h2>
+      <p class="lead">首页负责"今天要不要开始"，地图页负责"我现在在哪、下一关是什么"。其余页面在确认这套气质后再展开。</p>
+    </div>
+    <div class="screens">
+      <div class="screen-block">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span>
+            <span class="statusbar-icons">
+              <svg width="15" height="11" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="7" width="3" height="5" rx="1" fill="#23281f"/><rect x="4.5" y="5" width="3" height="7" rx="1" fill="#23281f"/><rect x="9" y="3" width="3" height="9" rx="1" fill="#23281f"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#23281f" opacity=".35"/></svg>
+              <svg width="15" height="11" viewBox="0 0 18 12" aria-hidden="true"><path d="M1 4.5C4 1.5 14 1.5 17 4.5" stroke="#23281f" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M4 7c2.5-2 7.5-2 10 0" stroke="#23281f" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="9" cy="10" r="1.3" fill="#23281f"/></svg>
+              <svg width="22" height="11" viewBox="0 0 26 12" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="11" rx="3" fill="none" stroke="#23281f" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="2" fill="#23281f"/><path d="M24 4v4" stroke="#23281f" stroke-width="1.6" stroke-linecap="round" opacity=".5"/></svg>
+            </span>
+          </div>
+          <div class="app-screen">
+            <div class="app-scroll">
+              <div class="home-hello">
+                <div>
+                  <div class="hi">晚上好，旅人</div>
+                  <div class="name">今天也去雾林走走？</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span class="streak">
+                    <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 5 5 10a5 5 0 11-10 0c0-3 2-4 2-7 1 2 2 2 3 3 0-2 0-4 0-6z" fill="#a96f1f"/></svg>
+                    7 天
+                  </span>
+                  <div class="home-avatar">
+                    <svg width="26" height="26" viewBox="0 0 200 200" aria-hidden="true">
+                      <circle cx="100" cy="92" r="44" fill="#23281f"/>
+                      <path d="M64 60L60 28l28 18z" fill="#23281f"/><path d="M136 60l4-32-28 18z" fill="#23281f"/>
+                      <ellipse cx="83" cy="90" rx="10" ry="12" fill="#e0a23c"/><ellipse cx="117" cy="90" rx="10" ry="12" fill="#e0a23c"/>
+                      <ellipse cx="83" cy="90" rx="3.6" ry="7" fill="#23281f"/><ellipse cx="117" cy="90" rx="3.6" ry="7" fill="#23281f"/>
+                      <ellipse cx="100" cy="112" rx="17" ry="10" fill="#f7f2e4"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hero-card">
+                <div class="eyebrow-line">TODAY'S PATH · 第三章</div>
+                <h3>第 3 关 · 栈与队列</h3>
+                <p>上回你漏掉了「循环队列判满」，今天补上。</p>
+                <div class="hero-meta">
+                  <span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
+                    5 题
+                  </span>
+                  <span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    约 4 分钟
+                  </span>
+                  <span>最佳 ★★☆</span>
+                </div>
+                <div class="hero-cta">
+                  继续闯关
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </div>
+                <div class="hero-stars">
+                  <svg width="40" height="14" viewBox="0 0 60 18" aria-hidden="true">
+                    <path d="M9 1l2.2 5.2 5.6.5-4.3 3.7 1.3 5.6L9 13.1 4.2 16l1.3-5.6L1.2 6.7l5.6-.5z" fill="#f3d9a4"/>
+                    <path d="M29 1l2.2 5.2 5.6.5-4.3 3.7 1.3 5.6L29 13.1 24.2 16l1.3-5.6-4.3-3.7 5.6-.5z" fill="#f3d9a4"/>
+                    <path d="M49 1l2.2 5.2 5.6.5-4.3 3.7 1.3 5.6L49 13.1 44.2 16l1.3-5.6-4.3-3.7 5.6-.5z" fill="#f3d9a4" opacity=".3"/>
+                  </svg>
+                </div>
+                <svg class="hero-mascot" viewBox="0 0 260 300" aria-hidden="true">
+                  <path d="M196 220c34-10 44-50 22-76" stroke="#f7f2e4" stroke-width="18" fill="none" stroke-linecap="round" opacity=".92"/>
+                  <ellipse cx="130" cy="212" rx="58" ry="50" fill="#f7f2e4" opacity=".16"/>
+                  <circle cx="130" cy="150" r="54" fill="#f7f2e4" opacity=".18"/>
+                  <circle cx="130" cy="150" r="54" fill="#23281f"/>
+                  <path d="M86 116l-6-40 34 24z" fill="#23281f"/><path d="M174 116l6-40-34 24z" fill="#23281f"/>
+                  <ellipse cx="108" cy="144" rx="14" ry="16" fill="#e0a23c"/><ellipse cx="152" cy="144" rx="14" ry="16" fill="#e0a23c"/>
+                  <ellipse cx="108" cy="144" rx="4.5" ry="9" fill="#23281f"/><ellipse cx="152" cy="144" rx="4.5" ry="9" fill="#23281f"/>
+                  <circle cx="103" cy="137" r="3" fill="#fffdf6"/><circle cx="147" cy="137" r="3" fill="#fffdf6"/>
+                  <ellipse cx="130" cy="166" rx="24" ry="15" fill="#f7f2e4" opacity=".96"/>
+                  <path d="M125 164q5 5 10 0" stroke="#23281f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                </svg>
+              </div>
+
+              <div class="section-row">
+                <h4>你的章节</h4>
+                <a href="#screens">全部 4 个</a>
+              </div>
+
+              <div class="chapter-mini">
+                <div class="chapter-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2b4a39" stroke-width="1.6" aria-hidden="true"><path d="M4 18c3-6 5-9 8-9s5 3 8 9"/><path d="M4 20h16"/><circle cx="12" cy="5" r="2"/></svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <h5>数据结构 · 第三章</h5>
+                  <p>3 / 6 关 · 下一关：栈与队列</p>
+                  <div class="mini-bar"><span style="width:50%"></span></div>
+                </div>
+              </div>
+
+              <div class="chapter-mini">
+                <div class="chapter-icon" style="background:#f3d9a4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a96f1f" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="16" r="3"/></svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <h5>浏览器缓存 · 第二章</h5>
+                  <p>2 / 4 关 · 下一关：协商缓存</p>
+                  <div class="mini-bar"><span style="width:50%;background:#e0a23c"></span></div>
+                </div>
+              </div>
+
+              <div class="daily-strip">
+                <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 34c-8 0-13-5-13-12S12 8 20 8s13 7 13 14-5 12-13 12z" fill="#9dbfb0" opacity=".55"/><path d="M20 10c0-4 2-6 2-6" stroke="#3e6650" stroke-width="2"/></svg>
+                <div>
+                  <h5>今日挑战 · 雾林拾遗</h5>
+                  <p>3 题 · 全对得 30 经验</p>
+                </div>
+                <span class="go">去挑战</span>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tabbar-item active">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 18c3-6 5-9 8-9s5 3 8 9"/><path d="M4 20h16"/></svg>
+                闯关
+              </div>
+              <div class="tabbar-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M15 9l-2 5-4 1 2-5z"/></svg>
+                探索
+              </div>
+              <div class="tabbar-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M8 8h8M8 12h6"/></svg>
+                错题
+              </div>
+              <div class="tabbar-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="9" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>
+                我的
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-caption">
+          <b>首页 · 把"继续"放在拇指最容易够到的地方</b>
+          一张主卡承载"今天做什么"，章节卡只做进度预览；连胜与猫灵承担情绪，不抢占主按钮。
+        </div>
+      </div>
+
+      <div class="screen-block">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span>
+            <span class="statusbar-icons">
+              <svg width="15" height="11" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="7" width="3" height="5" rx="1" fill="#23281f"/><rect x="4.5" y="5" width="3" height="7" rx="1" fill="#23281f"/><rect x="9" y="3" width="3" height="9" rx="1" fill="#23281f"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#23281f" opacity=".35"/></svg>
+              <svg width="15" height="11" viewBox="0 0 18 12" aria-hidden="true"><path d="M1 4.5C4 1.5 14 1.5 17 4.5" stroke="#23281f" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M4 7c2.5-2 7.5-2 10 0" stroke="#23281f" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="9" cy="10" r="1.3" fill="#23281f"/></svg>
+              <svg width="22" height="11" viewBox="0 0 26 12" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="11" rx="3" fill="none" stroke="#23281f" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="2" fill="#23281f"/><path d="M24 4v4" stroke="#23281f" stroke-width="1.6" stroke-linecap="round" opacity=".5"/></svg>
+            </span>
+          </div>
+          <div class="app-screen" style="background:radial-gradient(300px 220px at 90% 0%,rgba(157,191,176,.4),transparent 70%),var(--paper)">
+            <div class="app-scroll" style="padding-bottom:0">
+              <div class="map-top">
+                <div class="icon-btn">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#23281f" stroke-width="1.8" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+                </div>
+                <div class="map-title">
+                  <div class="k">CHAPTER 03</div>
+                  <div class="t">数据结构 · 栈与队列</div>
+                </div>
+                <div class="leaf-count">
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c8-1 13-6 14-14C11 5 4 10 5 19z" fill="#9dbfb0" stroke="#3e6650" stroke-width="1.2"/><path d="M5 19c3-5 7-8 11-10" stroke="#3e6650" stroke-width="1.2" fill="none"/></svg>
+                  128
+                </div>
+              </div>
+
+              <div class="map-canvas">
+                <svg class="path" viewBox="0 0 335 470" preserveAspectRatio="none" aria-hidden="true">
+                  <path d="M80 390C130 380 180 365 211 329C245 295 170 290 127 258C85 225 200 225 238 188C270 160 145 150 107 122C75 100 180 90 221 56"
+                        stroke="#3e6650" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.42"/>
+                  <path d="M20 430c26-22 40-56 64-72" stroke="#9dbfb0" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.35"/>
+                  <circle cx="292" cy="118" r="26" fill="#e0a23c" opacity="0.12"/>
+                  <circle cx="48" cy="196" r="34" fill="#3e6650" opacity="0.08"/>
+                  <path d="M270 400c10-18 16-30 14-46" stroke="#3e6650" stroke-width="2" fill="none" opacity="0.25"/>
+                  <path d="M300 392c12-14 14-28 10-40" stroke="#3e6650" stroke-width="2" fill="none" opacity="0.2"/>
+                </svg>
+
+                <div class="map-node done" style="left:24%;top:83%">✓</div>
+                <div class="map-label" style="left:24%;top:calc(83% + 32px)">1-1 概念</div>
+
+                <div class="map-node done" style="left:63%;top:70%">✓</div>
+                <div class="map-label" style="left:63%;top:calc(70% + 32px)">1-2 复杂度</div>
+
+                <div class="map-node current" style="left:38%;top:55%">3</div>
+                <div class="map-label" style="left:38%;top:calc(55% + 34px)">1-3 栈与队列</div>
+                <svg class="map-mascot" style="left:38%;top:53%" viewBox="0 0 260 260" aria-hidden="true">
+                  <ellipse cx="130" cy="238" rx="56" ry="8" fill="#23281f" opacity=".12"/>
+                  <path d="M196 186c34-8 44-44 24-68" stroke="#23281f" stroke-width="20" fill="none" stroke-linecap="round"/>
+                  <ellipse cx="130" cy="176" rx="58" ry="50" fill="#23281f"/>
+                  <ellipse cx="130" cy="190" rx="26" ry="20" fill="#f7f2e4" opacity=".95"/>
+                  <circle cx="130" cy="118" r="54" fill="#23281f"/>
+                  <path d="M86 84L80 44l34 24z" fill="#23281f"/><path d="M174 84l6-40-34 24z" fill="#23281f"/>
+                  <ellipse cx="108" cy="112" rx="14" ry="16" fill="#e0a23c"/><ellipse cx="152" cy="112" rx="14" ry="16" fill="#e0a23c"/>
+                  <ellipse cx="108" cy="112" rx="4.5" ry="9" fill="#23281f"/><ellipse cx="152" cy="112" rx="4.5" ry="9" fill="#23281f"/>
+                  <circle cx="103" cy="105" r="3" fill="#fffdf6"/><circle cx="147" cy="105" r="3" fill="#fffdf6"/>
+                  <ellipse cx="130" cy="134" rx="24" ry="15" fill="#f7f2e4" opacity=".96"/>
+                </svg>
+
+                <div class="map-node locked" style="left:71%;top:40%">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+                </div>
+                <div class="map-label" style="left:71%;top:calc(40% + 32px)">1-4 链表</div>
+
+                <div class="map-node locked" style="left:32%;top:26%">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+                </div>
+                <div class="map-label" style="left:32%;top:calc(26% + 32px)">1-5 树</div>
+
+                <div class="map-node locked" style="left:66%;top:12%">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+                </div>
+                <div class="map-label" style="left:66%;top:calc(12% + 32px)">章末 · 综合</div>
+
+                <div class="map-fog"></div>
+              </div>
+            </div>
+
+            <div class="level-sheet">
+              <div class="grab"></div>
+              <div class="lvl">
+                <div>
+                  <h4>第 3 关 · 栈与队列</h4>
+                  <p>5 题 · 约 4 分钟 · 最佳 ★★☆</p>
+                  <div class="stars" style="margin-top:6px" aria-label="最佳成绩两星">
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e0a23c"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 3l2.6 6.2 6.4.6-4.9 4.3 1.5 6.4L12 17.1 6.4 20.5l1.5-6.4L3 9.8l6.4-.6z" fill="#e8e0cd"/></svg>
+                  </div>
+                </div>
+                <span class="tag amber">继续上次</span>
+              </div>
+              <button class="btn btn-primary start">开始闯关</button>
+            </div>
+          </div>
+        </div>
+        <div class="screen-caption">
+          <b>章节地图 · 用"路"表达进度，而不是进度条</b>
+          已完成节点实心苔绿，当前节点琥珀发光并站着墨团，未解锁用虚线与锁；底部只放一个主行动。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 对比 ================= -->
+  <section class="section wrap" id="compare">
+    <div class="section-head">
+      <div class="eyebrow">10 · Benchmark</div>
+      <h2>参考了谁，又刻意不学谁</h2>
+      <p class="lead">
+        联网调研了多邻国的设计体系（其 2026 年核心 Tab 改版强调"一致性要服务目的、简洁不能牺牲清晰"），
+        以及百词斩/扇贝的卡片式学习、主流 AI 学习工具的对话式交互。结论是：借机制，不借皮。
+      </p>
+    </div>
+    <table class="compare-table">
+      <thead>
+        <tr><th>参考对象</th><th>它的核心手法</th><th>我们借什么</th><th>我们刻意不学什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>多邻国</td>
+          <td>路径地图、连胜、段位、情绪化吉祥物、强反馈</td>
+          <td>路径式进度 + 吉祥物人格 + 即时的对错反馈</td>
+          <td>高饱和撞色与竞技排名带来的压迫感；等级焦虑</td>
+        </tr>
+        <tr>
+          <td>百词斩 / 扇贝</td>
+          <td>卡片式单点学习、图像联想、克制的品牌色</td>
+          <td>一屏一事的专注；低干扰的绿系配色</td>
+          <td>纯列表与"背单词"式机械重复，缺少叙事</td>
+        </tr>
+        <tr>
+          <td>主流 AI 学习工具</td>
+          <td>对话框、自由提问、生成式内容</td>
+          <td>AI 生成章节、按错题追问（P1）</td>
+          <td>"不知道问什么"的空输入框；长文本输出</td>
+        </tr>
+        <tr>
+          <td>传统题库 / 知识付费</td>
+          <td>题海、红黑配色、考试倒计时</td>
+          <td>严谨的解析与得分点</td>
+          <td>焦虑驱动的视觉语言（大红大黑、倒计时闪烁）</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ================= 确认 ================= -->
+  <section class="wrap" id="confirm">
+    <div class="confirm-box">
+      <div class="eyebrow" style="color:#9dbfb0">11 · Review</div>
+      <h2>请确认这套气质，再进入高保真</h2>
+      <p style="max-width:620px">
+        我建议先锁定"治愈手绘纸感 + 苔绿琥珀 + 原创墨团 + 章节地图"。以下 6 项确认后，
+        我会按 3 个 HTML 文件产出全量高保真原型（每文件一行三列、响应式、可点击交互）。
+      </p>
+      <div class="confirm-list">
+        <div class="confirm-item"><span class="box"></span><span>视觉方向：治愈手绘纸感，保留轻微不完美（微旋转、手绘线）</span></div>
+        <div class="confirm-item"><span class="box"></span><span>配色：宣纸底 + 苔绿主色 + 琥珀强调 + 朱砂印章</span></div>
+        <div class="confirm-item"><span class="box"></span><span>字体：毛笔体标题 + 宋体正文（离线回退系统楷体/宋体）</span></div>
+        <div class="confirm-item"><span class="box"></span><span>吉祥物：原创「墨团」，不使用官方角色形象</span></div>
+        <div class="confirm-item"><span class="box"></span><span>结构：章节地图 + 逐关解锁，保留 AI 自由生成章节入口</span></div>
+        <div class="confirm-item"><span class="box"></span><span>范围：核心 5 页 + AI/错题 4 页 + 成长社交 4 页</span></div>
+      </div>
+      <p style="margin-top:22px;font-size:13px;color:rgba(247,242,228,.62)">
+        可选调整：① 首页更空一点 / 更满一点？ ② 要不要保留"每日挑战"？ ③ 朱砂印章是否太重？
+        直接回复「确认」或指出要改的点即可。
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>墨灵闯关 · UI 风格板 v0.1 · 2026-11-09</span>
+    <span>原创视觉，不使用《罗小黑》官方角色素材 · 页面结构参考方案设计文档</span>
+  </div>
+</footer>
+
+</body>
+</html>
