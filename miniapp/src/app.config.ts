@@ -7,7 +7,11 @@ export default {
     'pages/report/index',
     'pages/create/index',
     'pages/generating/index',
-    'pages/preview/index'
+    'pages/preview/index',
+    'pages/profile/index',
+    'pages/records/index',
+    'pages/settings/index',
+    'pages/about/index'
   ],
   window: {
     backgroundTextStyle: 'dark',

@@ -91,6 +91,39 @@ async function main() {
   await layoutReport(page, 'home')
   console.log('首页标题:', (await page.locator('body').innerText()).slice(0, 80).replace(/\n/g, ' | '))
 
+  // 用户系统：游客 → 体验登录 → 个人中心 → 学习记录
+  await page.getByText('我的', { exact: true }).click()
+  await page.waitForURL(/pages\/profile\/index/, { timeout: 20000 })
+  await page.waitForTimeout(900)
+  const loginCta = page.getByText('去登录', { exact: true }).first()
+  if (await loginCta.count()) {
+    await loginCta.click()
+    await page.waitForTimeout(600)
+    const agree = page.getByText('我已阅读并同意', { exact: false }).first()
+    if (await agree.count()) await agree.click()
+    const devLogin = page.getByText('体验登录（开发）', { exact: true }).first()
+    if (!(await devLogin.count())) throw new Error('体验登录入口不存在')
+    await devLogin.click()
+    await page.waitForTimeout(1600)
+  }
+  const profileText = await page.locator('body').innerText()
+  if (!/今日|额度|学习记录/.test(profileText)) {
+    throw new Error('个人中心未加载：' + profileText.slice(0, 120))
+  }
+  await layoutReport(page, 'profile')
+  await page.screenshot({ path: path.join(OUT, 'e2e-profile.png'), animations: 'disabled', timeout: 30000 })
+
+  await page.getByText('学习记录', { exact: true }).click()
+  await page.waitForURL(/pages\/records\/index/, { timeout: 20000 })
+  await page.waitForTimeout(900)
+  await layoutReport(page, 'records')
+  await page.screenshot({ path: path.join(OUT, 'e2e-records.png'), animations: 'disabled', timeout: 30000 })
+  await page.goBack()
+  await page.waitForTimeout(600)
+  await page.getByText('闯关', { exact: true }).click()
+  await page.waitForURL(/pages\/index\/index/, { timeout: 20000 })
+  await page.waitForTimeout(700)
+
   // 从 tabbar 的「探索」进入造关页
   await page.getByText('探索', { exact: true }).click()
   await page.waitForURL(/pages\/create\/index/, { timeout: 20000 })
@@ -159,6 +192,15 @@ async function main() {
     animations: 'disabled',
     timeout: 30000
   })
+
+  // 学习记录应包含刚才完成的一组
+  await page.goto(WEB + '/#/pages/records/index', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(900)
+  const recordCards = await page.locator('.record-card').count()
+  console.log('学习记录条数:', recordCards)
+  if (recordCards < 1) {
+    errors.push('登录后学习记录为空，游客数据可能未迁移')
+  }
 
   // 响应式：375 / 390 / 768 三档无横向溢出
   for (const width of [375, 390, 768]) {

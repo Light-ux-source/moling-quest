@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
 import { IS_WEAPP } from '../config'
+import { goBackOrHome } from '../utils/nav'
 import { useSafeArea } from '../hooks/useSafeArea'
 import Icon from './Icon'
 
@@ -21,13 +21,7 @@ export default function PageHeader({ title, back = false, onBack, right, center 
       onBack()
       return
     }
-    try {
-      Taro.navigateBack({ delta: 1 }).catch(() => {
-        Taro.reLaunch({ url: '/pages/index/index' })
-      })
-    } catch (err) {
-      Taro.reLaunch({ url: '/pages/index/index' })
-    }
+    goBackOrHome()
   }
 
   return (

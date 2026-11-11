@@ -12,7 +12,10 @@ export const STORAGE_KEYS = {
   clientId: 'ml_client_id',
   recentSessions: 'ml_recent_sessions',
   drafts: 'ml_quiz_drafts',
-  lastChapter: 'ml_last_chapter'
+  lastChapter: 'ml_last_chapter',
+  authToken: 'ml_auth_token',
+  authUser: 'ml_auth_user',
+  agreedTerms: 'ml_agreed_terms'
 } as const
 
 export const POLL_INTERVAL = 1200

@@ -14,6 +14,7 @@ from ..prompts import LEVEL_GUIDE, TYPE_RULES
 from ..schemas import TYPE_LABELS, QuestionFull
 from ..search import get_search
 from ..utils import letters as _letters
+from .quota import refund_failure
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +280,7 @@ async def generate_for_session(session_id: str) -> None:
             progress=100,
             error=_friendly_error(exc),
         )
+        refund_failure(session)
 
 
 def _friendly_error(exc: Exception) -> str:

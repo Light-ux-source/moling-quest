@@ -1,14 +1,19 @@
 import Taro from '@tarojs/taro'
 import { API_BASE, POLL_INTERVAL, POLL_MAX_INTERVAL, POLL_TIMEOUT, STORAGE_KEYS } from '../config'
 import type {
+  AuthResponse,
   ChapterDetail,
   ChapterKind,
   ChapterSummary,
   Level,
+  MeResponse,
   Profile,
+  RecordList,
   Report,
   SessionDetail,
-  Settlement
+  Settlement,
+  User,
+  UserSettings
 } from '../types'
 
 export class ApiError extends Error {
@@ -22,12 +27,64 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   data?: unknown
   timeout?: number
 }
 
 let cachedClientId = ''
+let cachedToken = ''
+
+export function getToken(): string {
+  if (cachedToken) return cachedToken
+  try {
+    const stored = Taro.getStorageSync(STORAGE_KEYS.authToken)
+    if (typeof stored === 'string' && stored.trim()) cachedToken = stored.trim()
+  } catch (err) {
+    console.warn('读取登录态失败', err)
+  }
+  return cachedToken
+}
+
+export function getStoredUser(): User | null {
+  try {
+    const stored = Taro.getStorageSync(STORAGE_KEYS.authUser)
+    if (stored && typeof stored === 'object') return stored as User
+  } catch (err) {
+    console.warn('读取用户资料失败', err)
+  }
+  return null
+}
+
+export function setAuthSession(token: string, user: User): void {
+  cachedToken = token
+  try {
+    Taro.setStorageSync(STORAGE_KEYS.authToken, token)
+    Taro.setStorageSync(STORAGE_KEYS.authUser, user)
+  } catch (err) {
+    console.warn('保存登录态失败', err)
+  }
+}
+
+export function clearAuthSession(): void {
+  cachedToken = ''
+  try {
+    Taro.removeStorageSync(STORAGE_KEYS.authToken)
+    Taro.removeStorageSync(STORAGE_KEYS.authUser)
+  } catch (err) {
+    console.warn('清理登录态失败', err)
+  }
+}
+
+export function isLoggedIn(): boolean {
+  return !!getToken()
+}
+
+export function resolveMediaUrl(path?: string | null): string {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${API_BASE}${path}`
+}
 
 /** 匿名设备 ID：无登录时用它隔离章节/统计，换设备不同步。 */
 export function getClientId(): string {
@@ -50,6 +107,26 @@ export function getClientId(): string {
   return cachedClientId
 }
 
+function extractErrorDetail(data: unknown, status: number): string {
+  if (data && typeof data === 'object' && 'detail' in data) {
+    const detail = (data as { detail?: unknown }).detail
+    if (typeof detail === 'string' && detail.trim()) return detail
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => {
+          if (typeof item === 'string') return item
+          if (item && typeof item === 'object' && 'msg' in item) {
+            return String((item as { msg?: unknown }).msg || '')
+          }
+          return ''
+        })
+        .filter((item) => !!item)
+      if (messages.length > 0) return messages.join('；')
+    }
+  }
+  return `请求失败（${status}）`
+}
+
 function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     Taro.request({
@@ -59,17 +136,16 @@ function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
       timeout: options.timeout || 30000,
       header: {
         'Content-Type': 'application/json',
-        'X-Client-Id': getClientId()
+        'X-Client-Id': getClientId(),
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
       },
       success(res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data as T)
           return
         }
-        const detail =
-          (res.data && typeof res.data === 'object' && 'detail' in res.data
-            ? String((res.data as { detail?: string }).detail)
-            : '') || `请求失败（${res.statusCode}）`
+        const detail = extractErrorDetail(res.data, res.statusCode)
+        if (res.statusCode === 401) clearAuthSession()
         reject(new ApiError(res.statusCode, detail))
       },
       fail(err) {
@@ -129,6 +205,14 @@ export function retrySession(sessionId: string): Promise<SessionDetail> {
   return request<SessionDetail>(`/api/v1/sessions/${sessionId}/retry`, { method: 'POST' })
 }
 
+/** 预览页重新生成：复用同一会话/章节，不额外消耗额度。 */
+export function regenerateSession(sessionId: string): Promise<SessionDetail> {
+  return request<SessionDetail>(`/api/v1/sessions/${sessionId}/regenerate`, {
+    method: 'POST',
+    timeout: 20000
+  })
+}
+
 export function getChapters(limit = 10): Promise<{ items: ChapterSummary[] }> {
   return request<{ items: ChapterSummary[] }>(`/api/v1/chapters?limit=${limit}`)
 }
@@ -145,7 +229,15 @@ export function getProfile(): Promise<Profile> {
   return request<Profile>('/api/v1/profile')
 }
 
-export function health(): Promise<{ mode: string; model: string; web_search: boolean }> {
+export function health(): Promise<{
+  mode: string
+  model: string
+  web_search: boolean
+  database?: string
+  auth?: string
+  wechat_login?: boolean
+  dev_login?: boolean
+}> {
   return request('/api/v1/health')
 }
 
@@ -283,4 +375,90 @@ export function clearDraft(sessionId: string): void {
   } catch (err) {
     console.warn('清理答题草稿失败', err)
   }
+}
+
+// --------------------------------------------------------------------------- //
+// auth / profile
+// --------------------------------------------------------------------------- //
+export function loginDev(nickname?: string): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/v1/auth/dev', {
+    method: 'POST',
+    data: nickname ? { nickname } : {},
+    timeout: 20000
+  })
+}
+
+export function loginWechat(
+  code: string,
+  nickname?: string,
+  avatarUrl?: string
+): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/v1/auth/wechat', {
+    method: 'POST',
+    data: { code, ...(nickname ? { nickname } : {}), ...(avatarUrl ? { avatar_url: avatarUrl } : {}) },
+    timeout: 20000
+  })
+}
+
+export function getMe(): Promise<MeResponse> {
+  return request<MeResponse>('/api/v1/auth/me')
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request('/api/v1/auth/logout', { method: 'POST' })
+}
+
+export function updateProfile(payload: {
+  nickname?: string
+  avatar_url?: string
+}): Promise<Profile> {
+  return request<Profile>('/api/v1/profile', { method: 'PATCH', data: payload })
+}
+
+export function uploadAvatar(filePath: string): Promise<{ avatar_url: string }> {
+  const token = getToken()
+  return new Promise((resolve, reject) => {
+    Taro.uploadFile({
+      url: `${API_BASE}/api/v1/profile/avatar`,
+      filePath,
+      name: 'file',
+      header: {
+        'X-Client-Id': getClientId(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      success(res) {
+        let parsed: any = null
+        try {
+          parsed = JSON.parse(String(res.data || '{}'))
+        } catch (err) {
+          reject(new ApiError(res.statusCode, '头像上传返回异常'))
+          return
+        }
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(parsed)
+          return
+        }
+        reject(new ApiError(res.statusCode, parsed?.detail || '头像上传失败'))
+      },
+      fail(err) {
+        reject(new ApiError(0, err?.errMsg || '头像上传失败'))
+      }
+    })
+  })
+}
+
+export function getRecords(limit = 20, offset = 0): Promise<RecordList> {
+  return request<RecordList>(`/api/v1/records?limit=${limit}&offset=${offset}`)
+}
+
+export function getSettings(): Promise<UserSettings> {
+  return request<UserSettings>('/api/v1/profile/settings')
+}
+
+export function updateSettings(payload: UserSettings): Promise<UserSettings> {
+  return request<UserSettings>('/api/v1/profile/settings', { method: 'PATCH', data: payload })
+}
+
+export function deleteAccount(): Promise<void> {
+  return request<void>('/api/v1/profile', { method: 'DELETE' })
 }

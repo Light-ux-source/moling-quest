@@ -8,6 +8,7 @@ import ProgressBar from '../../components/ProgressBar'
 import LoadingOrb from '../../components/LoadingOrb'
 import ErrorCard from '../../components/ErrorCard'
 import StarRating from '../../components/StarRating'
+import LoginSheet from '../../components/LoginSheet'
 import { createSession, waitForReport } from '../../services/api'
 import type { Level, Report } from '../../types'
 import { ALL_TYPES } from '../../types'
@@ -19,6 +20,7 @@ import {
   starText,
   topicShort
 } from '../../utils/format'
+import { errorMessage, handleCreateError } from '../../utils/quota'
 import './index.css'
 
 export default function ReportPage() {
@@ -29,7 +31,9 @@ export default function ReportPage() {
   const [error, setError] = useState('')
   const [openIds, setOpenIds] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const alive = useRef(true)
+  const creatingRef = useRef(false)
 
   const load = async () => {
     if (!sessionId) {
@@ -68,10 +72,18 @@ export default function ReportPage() {
   }
 
   const practice = async (topic = report?.topic || '') => {
-    if (!report || creating || !topic) return
-    setCreating(true)
-    Taro.showLoading({ title: '正在造新一组…', mask: true })
+    if (!report || creatingRef.current || !topic) return
+    creatingRef.current = true
     try {
+      const modal = await Taro.showModal({
+        title: '再练一组？',
+        content: '会新建一组题，并消耗 1 次造关额度。',
+        confirmText: '开始',
+        cancelText: '再想想'
+      })
+      if (!modal.confirm) return
+      setCreating(true)
+      Taro.showLoading({ title: '正在造新一组…', mask: true })
       const session = await createSession({
         topic,
         level: report.level as Level,
@@ -79,11 +91,13 @@ export default function ReportPage() {
         types: ALL_TYPES
       })
       Taro.hideLoading()
-      Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
+      Taro.redirectTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
       Taro.hideLoading()
-      Taro.showToast({ title: (err as Error).message || '创建失败，请重试', icon: 'none' })
+      if (await handleCreateError(err, () => setLoginOpen(true))) return
+      Taro.showToast({ title: errorMessage(err, '创建失败，请重试'), icon: 'none' })
     } finally {
+      creatingRef.current = false
       setCreating(false)
     }
   }
@@ -108,7 +122,7 @@ export default function ReportPage() {
     })
   }
 
-  const changeTopic = () => Taro.navigateTo({ url: '/pages/create/index' })
+  const changeTopic = () => Taro.redirectTo({ url: '/pages/create/index' })
 
   if (loading) {
     return (
@@ -345,6 +359,16 @@ export default function ReportPage() {
           </View>
         </View>
       </View>
+
+      <LoginSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => {
+          setLoginOpen(false)
+          Taro.showToast({ title: '登录成功，可以继续造关了', icon: 'success' })
+        }}
+        reason='登录后可继续造关，学习记录也会跟着账号走。'
+      />
     </PageShell>
   )
 }

@@ -186,18 +186,82 @@ export interface ChapterSummary {
   completed_at?: string | null
 }
 
+export interface QuotaInfo {
+  used: number
+  limit: number
+  remaining: number
+  period: 'day' | 'trial'
+  source: 'daily' | 'guest_trial'
+  reset_at?: string | null
+  is_guest: boolean
+}
+
+export interface UserSettings {
+  reminder_enabled: boolean
+}
+
+export interface User {
+  id: string
+  nickname: string
+  avatar_url?: string | null
+  wechat_bound: boolean
+  is_guest: boolean
+}
+
+export interface AuthResponse {
+  token: string
+  expires_at: string
+  user: User
+  migrated: { sessions?: number; chapters?: number }
+}
+
+export interface MeResponse {
+  authenticated: boolean
+  user?: User | null
+}
+
 export interface Profile {
   client_id: string
+  user_id?: string | null
   nickname: string
+  avatar_url?: string | null
+  is_guest: boolean
+  is_logged_in: boolean
+  wechat_bound: boolean
   chapters_completed: number
   total_stars: number
   total_exp: number
+  points: number
   leaf_count: number
   streak_days: number
   rank: RankInfo
-  quota: { used: number; limit: number; remaining: number; period: string }
+  quota: QuotaInfo
+  settings: UserSettings
   weekly: Array<{ date: string; exp: number }>
   recent_chapters: ChapterSummary[]
+}
+
+export interface RecordItem {
+  id: string
+  chapter_id?: string | null
+  topic: string
+  level: Level
+  level_label: string
+  kind: ChapterKind
+  status: SessionStatus
+  status_label: string
+  question_count: number
+  stars: number
+  accuracy: number
+  points: number
+  created_at: string
+  completed_at?: string | null
+}
+
+export interface RecordList {
+  items: RecordItem[]
+  total: number
+  has_more: boolean
 }
 
 export const TYPE_META: Record<QuestionType, { label: string; short: string }> = {

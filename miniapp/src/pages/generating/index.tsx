@@ -10,6 +10,7 @@ import ErrorCard from '../../components/ErrorCard'
 import { getSession, pollSession, retrySession } from '../../services/api'
 import type { SessionDetail } from '../../types'
 import { topicShort } from '../../utils/format'
+import { goBackOrHome } from '../../utils/nav'
 import './index.css'
 
 const STEP_TITLES = ['联网检索资料', '提炼知识要点', '生成个性化题目']
@@ -120,7 +121,7 @@ export default function GeneratingPage() {
 
   const cancel = () => {
     cancelled.current = true
-    Taro.navigateBack().catch(() => Taro.reLaunch({ url: '/pages/index/index' }))
+    goBackOrHome()
   }
 
   const later = () => {

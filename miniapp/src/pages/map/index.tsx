@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
@@ -8,10 +8,12 @@ import Mascot from '../../components/Mascot'
 import StarRating from '../../components/StarRating'
 import ProgressBar from '../../components/ProgressBar'
 import ErrorCard from '../../components/ErrorCard'
+import LoginSheet from '../../components/LoginSheet'
 import EmptyState from '../../components/EmptyState'
 import { createComprehensive, getChapter, getProfile } from '../../services/api'
 import type { ChapterDetail, ChapterNode, Profile } from '../../types'
 import { estimateMinutes, starText, topicShort } from '../../utils/format'
+import { errorMessage, handleCreateError } from '../../utils/quota'
 import { FINAL_POSITION, NODE_LAYOUTS } from '../../utils/mapLayout'
 import './index.css'
 
@@ -40,6 +42,8 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const creatingRef = useRef(false)
 
   const load = useCallback(async () => {
     if (!chapterId) {
@@ -97,7 +101,7 @@ export default function MapPage() {
   }
 
   const handleComprehensive = async () => {
-    if (!chapter || creating) return
+    if (!chapter || creatingRef.current) return
     if (finalNode?.status === 'done' && finalNode.session_id) {
       openReport(finalNode.session_id)
       return
@@ -110,13 +114,16 @@ export default function MapPage() {
       toast('前 5 关全部满星后解锁章末综合')
       return
     }
+    creatingRef.current = true
     setCreating(true)
     try {
       const session = await createComprehensive(chapter.id)
       Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
-      toast((err as Error).message || '生成失败，请重试')
+      if (await handleCreateError(err, () => setLoginOpen(true))) return
+      toast(errorMessage(err, '生成失败，请重试'))
     } finally {
+      creatingRef.current = false
       setCreating(false)
     }
   }
@@ -311,6 +318,16 @@ export default function MapPage() {
         </View>
       )}
       <View className='map-bottom-space' />
+
+      <LoginSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => {
+          setLoginOpen(false)
+          load()
+        }}
+        reason='登录后可继续章末综合，学习记录也会跟着账号走。'
+      />
     </PageShell>
   )
 }

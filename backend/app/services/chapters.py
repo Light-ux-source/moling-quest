@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from .. import db
 from ..config import get_settings
+from .quota import snapshot as quota_snapshot
 from .settlement import rank_for_exp, streak_days
 
 try:  # Python 3.9+ 自带 zoneinfo；macOS 有系统时区数据
@@ -214,13 +215,16 @@ def build_chapter_summary(chapter: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def list_chapter_summaries(client_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    return [build_chapter_summary(c) for c in db.list_chapters(client_id, limit)]
+def list_chapter_summaries(
+    client_id: str, limit: int = 10, user_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    return [build_chapter_summary(c) for c in db.list_chapters(client_id, limit, user_id=user_id)]
 
 
-def build_profile(client_id: str) -> Dict[str, Any]:
+def build_profile(client_id: str, user: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     settings = get_settings()
-    completed = db.list_completed_sessions(client_id)
+    user_id = user["id"] if user else None
+    completed = db.list_completed_sessions(client_id, user_id=user_id)
     total_exp = sum(int(s.get("exp") or 0) for s in completed)
     total_stars = sum(int(s.get("stars") or 0) for s in completed)
 
@@ -230,7 +234,11 @@ def build_profile(client_id: str) -> Dict[str, Any]:
 
     now = datetime.now(TZ)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    used = db.count_sessions_since(client_id, month_start.astimezone(timezone.utc).isoformat(timespec="seconds"))
+    used = db.count_sessions_since(
+        client_id,
+        month_start.astimezone(timezone.utc).isoformat(timespec="seconds"),
+        user_id=user_id,
+    )
 
     weekly: List[Dict[str, Any]] = []
     for offset in range(6, -1, -1):
@@ -243,21 +251,26 @@ def build_profile(client_id: str) -> Dict[str, Any]:
         weekly.append({"date": day.isoformat(), "exp": day_exp})
 
     rank = rank_for_exp(total_exp)
+    quota = quota_snapshot(user, client_id)
+    user_settings = db.get_user_settings(user_id) if user_id else {"reminder_enabled": False}
     return {
         "client_id": client_id,
-        "nickname": "旅人",
+        "user_id": user_id,
+        "nickname": (user or {}).get("nickname") or "旅人",
+        "avatar_url": (user or {}).get("avatar_url"),
+        "is_guest": user is None,
+        "is_logged_in": user is not None,
+        "wechat_bound": bool((user or {}).get("openid")),
         "chapters_completed": len(completed),
         "total_stars": total_stars,
         "total_exp": total_exp,
+        "points": total_exp,
         "leaf_count": total_exp,
         "streak_days": streak,
         "rank": rank,
-        "quota": {
-            "used": used,
-            "limit": settings.monthly_quota,
-            "remaining": max(0, settings.monthly_quota - used),
-            "period": "month",
-        },
+        "quota": quota,
+        "settings": {"reminder_enabled": bool(user_settings.get("reminder_enabled"))},
         "weekly": weekly,
-        "recent_chapters": list_chapter_summaries(client_id, 3),
+        "recent_chapters": list_chapter_summaries(client_id, 3, user_id=user_id),
+        "monthly_used": used,
     }

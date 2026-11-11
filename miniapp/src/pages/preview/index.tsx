@@ -6,10 +6,11 @@ import PageHeader from '../../components/PageHeader'
 import Icon from '../../components/Icon'
 import LoadingOrb from '../../components/LoadingOrb'
 import ErrorCard from '../../components/ErrorCard'
-import { createSession, getSession } from '../../services/api'
+import { getSession, regenerateSession } from '../../services/api'
 import type { SessionDetail } from '../../types'
 import { TYPE_META } from '../../types'
 import { estimateMinutes, topicShort } from '../../utils/format'
+import { goToMap } from '../../utils/nav'
 import './index.css'
 
 export default function PreviewPage() {
@@ -20,6 +21,7 @@ export default function PreviewPage() {
   const [error, setError] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const alive = useRef(true)
+  const regeneratingRef = useRef(false)
 
   useEffect(() => {
     alive.current = true
@@ -67,27 +69,23 @@ export default function PreviewPage() {
   }
 
   const regenerate = async () => {
-    if (!session || regenerating) return
-    const modal = await Taro.showModal({
-      title: '重新生成这一章？',
-      content: '会重新检索并出题，预计 20–40 秒；本次生成不会删掉旧章节。',
-      confirmText: '重新生成',
-      cancelText: '再想想'
-    })
-    if (!modal.confirm) return
-    setRegenerating(true)
+    if (!session || regeneratingRef.current) return
+    regeneratingRef.current = true
     try {
-      const created = await createSession({
-        topic: session.topic,
-        level: session.level,
-        question_count: session.question_count,
-        types: session.types,
-        kind: 'standard'
+      const modal = await Taro.showModal({
+        title: '重新生成这一章？',
+        content: '会重新检索并出题，预计 20–40 秒；不会额外消耗造关额度。',
+        confirmText: '重新生成',
+        cancelText: '再想想'
       })
-      Taro.redirectTo({ url: `/pages/generating/index?sessionId=${created.id}` })
+      if (!modal.confirm) return
+      setRegenerating(true)
+      await regenerateSession(session.id)
+      Taro.redirectTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
       Taro.showToast({ title: (err as Error).message || '生成失败，请重试', icon: 'none' })
     } finally {
+      regeneratingRef.current = false
       setRegenerating(false)
     }
   }
@@ -98,11 +96,7 @@ export default function PreviewPage() {
   }
 
   const backToMap = () => {
-    if (session?.chapter_id) {
-      Taro.redirectTo({ url: `/pages/map/index?chapterId=${session.chapter_id}` })
-      return
-    }
-    Taro.reLaunch({ url: '/pages/index/index' })
+    goToMap(session?.chapter_id)
   }
 
   if (loading) {

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
 import Mascot from '../../components/Mascot'
@@ -7,12 +7,14 @@ import Icon from '../../components/Icon'
 import StarRating from '../../components/StarRating'
 import ProgressBar from '../../components/ProgressBar'
 import ErrorCard from '../../components/ErrorCard'
+import LoginSheet from '../../components/LoginSheet'
 import { useSafeArea } from '../../hooks/useSafeArea'
 import { IS_WEAPP } from '../../config'
-import { createSession, getChapters, getProfile, health, pushRecentSession } from '../../services/api'
+import { createSession, getChapters, getProfile, health, pushRecentSession, resolveMediaUrl } from '../../services/api'
 import type { ChapterSummary, Profile } from '../../types'
 import { ALL_TYPES } from '../../types'
 import { estimateMinutes, greeting, starText, topicShort } from '../../utils/format'
+import { errorMessage, handleCreateError } from '../../utils/quota'
 import './index.css'
 
 function isGenerating(status?: string | null): boolean {
@@ -76,7 +78,9 @@ export default function Index() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [dailyLoading, setDailyLoading] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const loadedOnce = useRef(false)
+  const dailyRef = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -110,6 +114,7 @@ export default function Index() {
     standardChapters[0]
   const copy = heroCopy(mainChapter)
   const streak = profile?.streak_days || 0
+  const avatar = resolveMediaUrl(profile?.avatar_url)
 
   const openMain = () => {
     if (!mainChapter) {
@@ -140,7 +145,8 @@ export default function Index() {
   }
 
   const handleDaily = async () => {
-    if (dailyLoading) return
+    if (dailyRef.current) return
+    dailyRef.current = true
     setDailyLoading(true)
     const topic = (mainChapter ? `${mainChapter.topic} · 常见误区` : '雾林拾遗 · 常见常识').slice(0, 200)
     try {
@@ -161,8 +167,10 @@ export default function Index() {
       })
       Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
-      Taro.showToast({ title: (err as Error).message || '创建失败，请重试', icon: 'none' })
+      if (await handleCreateError(err, () => setLoginOpen(true))) return
+      Taro.showToast({ title: errorMessage(err, '创建失败，请重试'), icon: 'none' })
     } finally {
+      dailyRef.current = false
       setDailyLoading(false)
     }
   }
@@ -180,7 +188,7 @@ export default function Index() {
       <View className='home' style={{ paddingTop: `${top + 16}px` }}>
         <View className={`home-hello ${IS_WEAPP ? 'weapp' : ''}`}>
           <View className='col home-hi-col'>
-            <Text className='hi'>{greeting()}，旅人</Text>
+            <Text className='hi'>{greeting()}，{profile?.nickname || '旅人'}</Text>
             <Text className='name'>今天也去雾林走走？</Text>
           </View>
           <View className='row home-hello-right'>
@@ -189,7 +197,11 @@ export default function Index() {
               <Text>{streak > 0 ? `${streak} 天` : '今天'}</Text>
             </View>
             <View className='home-avatar'>
-              <Mascot pose='head' className='mascot-head' />
+              {avatar ? (
+                <Image className='home-avatar-img' src={avatar} mode='aspectFill' />
+              ) : (
+                <Mascot pose='head' className='mascot-head' />
+              )}
             </View>
           </View>
         </View>
@@ -287,7 +299,7 @@ export default function Index() {
               </View>
               <View className='grow'>
                 <Text className='daily-title'>今日挑战 · 雾林拾遗</Text>
-                <Text className='daily-desc'>3 题 · 全对得 30 经验</Text>
+                <Text className='daily-desc'>3 题 · 全对得 30 积分</Text>
               </View>
               <Text className='daily-go'>{dailyLoading ? '准备中…' : '去挑战'}</Text>
             </View>
@@ -297,6 +309,16 @@ export default function Index() {
         )}
         <View className='home-bottom-space' />
       </View>
+
+      <LoginSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => {
+          setLoginOpen(false)
+          load()
+        }}
+        reason='登录后可继续今日挑战，学习记录也会跟着账号走。'
+      />
     </PageShell>
   )
 }

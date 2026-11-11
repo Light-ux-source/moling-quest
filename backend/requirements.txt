@@ -5,6 +5,10 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 python-multipart==0.0.9
 
+# MySQL（MySQL 8+/9，caching_sha2_password 需要 cryptography）
+PyMySQL==1.1.1
+cryptography==43.0.3
+
 # LangChain（Prompt 编排 / LCEL / DeepSeek 官方集成）
 # 注意：LangChain 1.x 要求 Python >=3.10，且 langchain-deepseek 0.1.4
 # 目前只兼容 langchain-core 0.3.x，因此本项目锁定 0.3.x 稳定线。

@@ -29,7 +29,7 @@ tail -50 /tmp/lwa-backend.log
 
 | 症状 | 最可能原因 | 处理 |
 | --- | --- | --- |
-| 小程序请求失败 | 未勾选“不校验合法域名”；后端没起；URL 不是 HTTPS | 开发者工具设置；`curl /health`；真机配 HTTPS 域名 |
+| 小程序请求失败 / 报“不在以下 request 合法域名列表中” | 开发者工具开启了域名校验；或真机/上线未配置 HTTPS 合法域名 | 开发工具：详情 → 本地设置 → 勾选“不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书”；真机/上线：公众平台配置 HTTPS 已备案 request 域名 |
 | H5 请求 CORS | 后端 `CORS_ORIGINS` 不含 H5 origin | 开发用 `*`；生产配具体域名 |
 | 首页一直白屏 | JS 报错/资源 404 | 看控制台；检查 `/assets/**`、转译错误 |
 | 生成一直 queued | 后台任务异常/Key/网络 | 看后端日志；失败会写 `error`；用 S07 重试 |
@@ -45,7 +45,7 @@ tail -50 /tmp/lwa-backend.log
 | 题目少于请求 | 校验丢弃非法题 | 正常“宁缺毋滥”；看日志/加强 Prompt |
 | 报告没有个性化 | report LLM 失败，规则回退 | 看日志；可重试/换 Key |
 | 简答判分很松/严 | 无 rubric 或 Mock 规则 | 检查题目 rubric；真实模式看 Prompt |
-| SQLite `database is locked` | 并发写 | 单 worker；缩短事务；迁 PG |
+| MySQL 连接失败/锁等待 | 连接配置/并发 | 检查 MYSQL_*、连接数、慢查询 |
 | 页面横向滚动 | 固定宽/长文本/负边距 | 用 E2E 三档检查；`overflow-x:hidden` 只兜底 |
 | 字体不像原型 | Google Fonts 不可达 | 系统回退；或托管子集字体 |
 | 图标/墨团 404 | `copy` 路径错误/资源未生成 | `python3 scripts/gen_assets.py`；确认 `dist/assets` |
@@ -54,7 +54,7 @@ tail -50 /tmp/lwa-backend.log
 | 截图超时 | 无限动画/字体等待 | `animations:'disabled'`；拦截 Google Fonts |
 | E2E 横向溢出 | Taro 页面切换中旧页仍在 DOM | 等 800ms 再测量；用 `:visible` |
 | E2E 404 | 缺图标/资源 | 看 `badResponses`；补资源/改图标名 |
-| 测试 DB 串数据 | `get_settings` 缓存/测试库复用 | `cache_clear()`、独立 `SQLITE_PATH`、`db._initialized=False` |
+| 测试 DB 串数据 | `get_settings` 缓存/测试库复用 | `cache_clear()`、独立 `lwa_test`、`db._initialized=False` |
 | `langchain` 安装冲突 | Python 3.9 + LangChain 1.x | 锁 0.3.x；见 §4 |
 
 ---
@@ -163,19 +163,19 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/sessions \
 
 - `SCHEMA` 里不要在新列上加 `CREATE INDEX`（旧表还没列）；索引放 `_migrate()`，先 `_ensure_column` 再建索引。
 - 当前已把 `idx_sessions_client` 放 `_migrate`。
-- 测试库用独立 `SQLITE_PATH`，`get_settings.cache_clear()` + `db._initialized=False`。
+- 测试库用独立 `lwa_test`，每个用例 TRUNCATE；`get_settings.cache_clear()` + `db._initialized=False`。
 
 ### 5.2 测试互相污染
 
-- `tests/conftest.py` 每个测试独立临时库；
+- `tests/conftest.py` 使用独立 `lwa_test`，每个用例 TRUNCATE；
 - 若自己写脚本，注意 `get_settings` 是 `lru_cache`；改 env 后清缓存。
 - `llm._llm`/`search._search`/`routes._rate` 也要清。
 
-### 5.3 SQLite 锁
+### 5.3 MySQL 连接失败 / 锁等待
 
-- 用 WAL（`PRAGMA journal_mode=WAL`）；
-- 单 worker；短事务；`busy_timeout=15000`；
-- 频繁锁 → 切 PostgreSQL（仓储层已隔离）。
+- 检查 `MYSQL_HOST/PORT/USER/PASSWORD/DATABASE`；本地先跑 `scripts/start_mysql_dev.sh`（3307）。
+- MySQL 8+/9 的 `caching_sha2_password` 需要 `cryptography`；已写入 requirements。
+- 锁等待用 `SHOW PROCESSLIST` / 慢查询定位；低配实例先降 worker、补索引，必要时上连接池。
 
 ### 5.4 限流误伤
 
@@ -197,7 +197,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/sessions \
 | 证书续期 | certbot timer；`nginx -t && systemctl reload nginx` |
 | CORS 生产失败 | `CORS_ORIGINS=https://h5.example.com`，不要 `*` + credentials |
 | 反向代理超时 | `proxy_read_timeout 180s` |
-| SQLite 多 worker 锁 | `--workers 1`；或 PG |
+| MySQL 连接耗尽 | 降 worker/连接池 |
 | 数据丢失 | 每日 `.backup`；恢复演练 |
 | Key 泄露 | 吊销→换 Key→查账单→记录事故 |
 
@@ -215,9 +215,9 @@ curl -s http://127.0.0.1:8000/api/v1/health
 # 最近日志
 tail -100 /tmp/lwa-backend.log
 
-# SQLite 表结构
-sqlite3 backend/data/app.db '.schema sessions'
-sqlite3 backend/data/app.db 'select status,count(*) from sessions group by status;'
+# MySQL 表结构
+mysql -h127.0.0.1 -P3307 -ulwa -p lwa_dev -e 'SHOW CREATE TABLE sessions\G'
+mysql -h127.0.0.1 -P3307 -ulwa -p lwa_dev -e 'SELECT status, COUNT(*) FROM sessions GROUP BY status;'
 
 # 构建产物资源
 find miniapp/dist/assets -type f | wc -l
@@ -255,3 +255,51 @@ A：填 `backend/.env` 的 Key 后重启；`/health` 变 `deepseek` 即可。请
 
 **Q：如何加一个新题型？**  
 A：`schemas.QuestionType` → `TYPE_LABELS` → Prompt `TYPE_RULES` → `normalize_question` → `grading` → 前端 `TYPE_META`/选项渲染 → 测试。链路较长，先写 ADR。
+---
+
+## 9. 用户系统 / MySQL（v0.3.0 新增）
+
+### 9.1 后端启动报“无法连接 MySQL”
+
+- 检查 `backend/.env` 的 `MYSQL_HOST/PORT/USER/PASSWORD/DATABASE`。
+- 本地开发先运行 `backend/scripts/start_mysql_dev.sh`（3307）；不要误连系统 3306。
+- 该开发实例不会开机自启：电脑重启/睡眠恢复后，先跑上面的脚本，再启动 uvicorn。
+- 生产需先创建 `utf8mb4` 库与最小权限账号；应用只建表，不自动建库。
+
+### 9.2 PyMySQL 认证失败 / `cryptography` 缺失
+
+MySQL 8+/9 默认 `caching_sha2_password`，需要 `cryptography`。`requirements.txt` 已包含；若手动装依赖，确认：
+
+```bash
+backend/.venv/bin/python -c "import pymysql, cryptography; print('ok')"
+```
+
+### 9.3 小程序微信登录返回 503
+
+- `/api/v1/health` 的 `wechat_login` 为 `false`：`.env` 中 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 未填写。
+- 在 `backend/.env` 配置 AppID + AppSecret，重启后端；**不要把 AppSecret 写进前端**。
+- 开发/验收用登录弹层的“体验登录（开发）”，或 `POST /auth/dev`。
+
+### 9.4 游客第 2 组造关被 429
+
+这是预期：游客累计 1 组试用。登录后按账号每日 3 组；登录时本机记录会自动迁移。
+
+### 9.5 登录用户第 4 组造关被 429
+
+每日 3 组（`DAILY_QUOTA_USER`），Asia/Shanghai 00:00 重置；失败重试/重新生成不重复扣。需要临时放宽测试可设 `QUOTA_ENFORCED=false`（不要用于生产）。
+
+### 9.6 登录后看不到游客记录
+
+- 迁移按 `X-Client-Id` claim 未归属账号的数据；确认登录请求与造关请求使用同一 `client_id`（前端自动持久化）。
+- 若已用另一账号登录过，数据已归属那个账号；换账号看不到是预期。
+- 退出登录后游客态看不到账号数据，重新登录即可恢复。
+
+### 9.7 头像上传失败
+
+- 仅 JPG/PNG/WebP，≤2MB；小程序需 `chooseAvatar`（用户手势），H5 用 `chooseImage`。
+- 本地存储目录 `AVATAR_UPLOAD_DIR` 需可写；生产建议接对象存储。
+- 微信真机图片 URL 必须是 HTTPS 合法域名；本地联调勾选“不校验合法域名”。
+
+### 9.8 注销后还能用原数据吗
+
+不能。注销会撤销令牌、删除昵称/头像/openid 绑定，学习记录匿名化保留统计；重新微信登录视为新账号。

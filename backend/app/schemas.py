@@ -169,6 +169,10 @@ class HealthResponse(BaseModel):
     mode: str
     model: str
     web_search: bool
+    database: str = "mysql"
+    auth: str = "wechat"
+    wechat_login: bool = False
+    dev_login: bool = False
 
 class ProgressUpdate(BaseModel):
     current_seq: int = Field(..., ge=1, le=50)
@@ -249,9 +253,12 @@ class RankInfo(BaseModel):
 
 class QuotaInfo(BaseModel):
     used: int = 0
-    limit: int = 10
-    remaining: int = 10
-    period: str = "month"
+    limit: int = 3
+    remaining: int = 3
+    period: str = "day"
+    source: str = "daily"
+    reset_at: Optional[str] = None
+    is_guest: bool = False
 
 
 class WeeklyPoint(BaseModel):
@@ -259,18 +266,101 @@ class WeeklyPoint(BaseModel):
     exp: int = 0
 
 
+class UserPublic(BaseModel):
+    id: str
+    nickname: str = "旅人"
+    avatar_url: Optional[str] = None
+    wechat_bound: bool = False
+    is_guest: bool = False
+
+
+class UserSettings(BaseModel):
+    reminder_enabled: bool = False
+
+
 class ProfilePayload(BaseModel):
     client_id: str
+    user_id: Optional[str] = None
     nickname: str = "旅人"
+    avatar_url: Optional[str] = None
+    is_guest: bool = True
+    is_logged_in: bool = False
+    wechat_bound: bool = False
     chapters_completed: int = 0
     total_stars: int = 0
     total_exp: int = 0
+    points: int = 0
     leaf_count: int = 0
     streak_days: int = 0
     rank: RankInfo
     quota: QuotaInfo
+    settings: UserSettings = Field(default_factory=UserSettings)
     weekly: List[WeeklyPoint] = Field(default_factory=list)
     recent_chapters: List[ChapterSummary] = Field(default_factory=list)
+
+
+class WechatLoginRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=512)
+    nickname: Optional[str] = Field(default=None, max_length=16)
+    avatar_url: Optional[str] = Field(default=None, max_length=512)
+
+
+class DevLoginRequest(BaseModel):
+    nickname: Optional[str] = Field(default=None, max_length=16)
+
+
+class AuthResponse(BaseModel):
+    token: str
+    expires_at: str
+    user: UserPublic
+    migrated: Dict[str, int] = Field(default_factory=dict)
+
+
+class MeResponse(BaseModel):
+    authenticated: bool = False
+    user: Optional[UserPublic] = None
+
+
+class ProfileUpdate(BaseModel):
+    nickname: Optional[str] = Field(default=None, min_length=1, max_length=16)
+    avatar_url: Optional[str] = Field(default=None, max_length=512)
+
+    @field_validator("nickname")
+    @classmethod
+    def _clean_nickname(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = " ".join(v.replace("\u3000", " ").split())
+        if not cleaned:
+            raise ValueError("昵称不能为空")
+        return cleaned
+
+
+class SettingsUpdate(BaseModel):
+    reminder_enabled: bool = False
+
+
+class RecordItem(BaseModel):
+    id: str
+    chapter_id: Optional[str] = None
+    topic: str
+    level: str
+    level_label: str = ""
+    kind: str = "standard"
+    status: str
+    status_label: str = ""
+    question_count: int = 0
+    stars: int = 0
+    accuracy: float = 0.0
+    points: int = 0
+    created_at: str
+    completed_at: Optional[str] = None
+
+
+class RecordListResponse(BaseModel):
+    items: List[RecordItem] = Field(default_factory=list)
+    total: int = 0
+    has_more: bool = False
 
 
 class SettlementPayload(BaseModel):

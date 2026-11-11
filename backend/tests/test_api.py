@@ -1,10 +1,8 @@
 import os
-import tempfile
 
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["ENABLE_WEB_SEARCH"] = "true"
 os.environ["RATE_LIMIT_PER_HOUR"] = "500"
-os.environ["SQLITE_PATH"] = os.path.join(tempfile.mkdtemp(prefix="lwa-test-"), "test.db")
 
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

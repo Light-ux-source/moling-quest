@@ -1,8 +1,8 @@
 /**
- * 视觉验收截图：S01–S08，375×812，2x。
+ * 视觉验收截图：S01–S11，375×812，2x。
  * 运行：
  *   1) 后端 8000 已启动
- *   2) SQLITE_PATH=../backend/data/app.db ../backend/.venv/bin/python scripts/seed_demo.py --reset
+ *   2) ../backend/.venv/bin/python scripts/seed_demo.py --reset（MySQL + 体验登录）
  *   3) npm run build:h5 && python3 scripts/serve_h5.py dist-h5 10087
  *   4) node scripts/screenshot.js
  */
@@ -56,13 +56,19 @@ async function main() {
     hasTouch: true,
     locale: 'zh-CN'
   })
-  await context.addInitScript((cid) => {
-    try {
-      localStorage.setItem('ml_client_id', JSON.stringify({ data: cid }))
-    } catch (err) {
-      /* ignore */
-    }
-  }, seed.client_id)
+  await context.addInitScript(
+    (payload) => {
+      try {
+        localStorage.setItem('ml_client_id', JSON.stringify({ data: payload.clientId }))
+        if (payload.token) {
+          localStorage.setItem('ml_auth_token', JSON.stringify({ data: payload.token }))
+        }
+      } catch (err) {
+        /* ignore */
+      }
+    },
+    { clientId: seed.client_id, token: seed.token || '' }
+  )
   await context.route('https://fonts.googleapis.com/**', (route) => route.abort())
   await context.route('https://fonts.gstatic.com/**', (route) => route.abort())
 
@@ -147,7 +153,11 @@ async function main() {
 
   const res = await fetch(`${API}/api/v1/sessions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Client-Id': seed.client_id },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Client-Id': seed.client_id,
+      ...(seed.token ? { Authorization: `Bearer ${seed.token}` } : {})
+    },
     body: JSON.stringify({ topic: '期权定价的直觉', level: 'basic', question_count: 5 })
   })
   if (!res.ok) throw new Error(`创建生成中会话失败: ${res.status}`)
@@ -158,6 +168,26 @@ async function main() {
   })
   await page.waitForTimeout(250)
   await shot('generating.png')
+
+  await page.goto(`${WEB}/#/pages/profile/index`, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.profile-page', { timeout: 30000 })
+  await page.waitForTimeout(800)
+  await shot('profile.png')
+
+  await page.goto(`${WEB}/#/pages/records/index`, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.records-page', { timeout: 30000 })
+  await page.waitForTimeout(800)
+  await shot('records.png')
+
+  await page.goto(`${WEB}/#/pages/settings/index`, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.settings-page', { timeout: 30000 })
+  await page.waitForTimeout(600)
+  await shot('settings.png')
+
+  await page.goto(`${WEB}/#/pages/about/index?type=privacy`, { waitUntil: 'load', timeout: 60000 })
+  await page.waitForSelector('.about-page', { timeout: 30000 })
+  await page.waitForTimeout(500)
+  await shot('privacy.png')
 
   console.log('console errors:', errors.length ? errors.slice(0, 5) : 'none')
   await browser.close()

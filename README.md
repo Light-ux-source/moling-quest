@@ -4,8 +4,8 @@
 >
 > 把「枯燥的被动阅读」变成「有反馈的主动回忆」。
 
-[![Tests](https://img.shields.io/badge/tests-45%20passed-3E6650)](#测试)
-[![UI](https://img.shields.io/badge/UI-S01--S08%20implemented-C98A2E)](#界面)
+[![Tests](https://img.shields.io/badge/tests-73%20passed-3E6650)](#测试)
+[![UI](https://img.shields.io/badge/UI-S01--S11%20implemented-C98A2E)](#界面)
 [![Taro](https://img.shields.io/badge/Taro-4.3.2-3E6650)](https://docs.taro.zone/docs/GETTING-STARTED)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-3E6650)](https://docs.langchain.com/oss/python/integrations/chat/deepseek)
 
@@ -16,11 +16,13 @@
 | 维度 | 状态 |
 | --- | --- |
 | 核心链路 | ✅ 输入 → 检索 → 出题 → 答题 → 结算 → 报告 |
-| 小程序端 | ✅ **S01–S08 已按已确认 UI 落地**（首页/地图/答题/结算/报告/造关/生成/预览） |
-| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/Profile，pytest **45 passed** |
+| 小程序端 | ✅ **S01–S08 + S11 个人中心/记录/设置/登录已落地** |
+| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/账号/配额/个人中心，pytest **73 passed** |
 | AI 编排 | ✅ LangChain 0.3.x（LCEL + ChatDeepSeek），Mock/真实同构 |
 | 真实模型 | ✅ 已用阿里云 MaaS OpenAI 兼容网关跑通 1 组真实 E2E（`deepseek-v4.1-flash-1017`）；该网关无 DeepSeek 官方 Search API，当前关闭联网检索 |
-| 上线合规 | ⏳ S09–S13、登录、配额执行、内容审核、备案待做 |
+| 账号与数据 | ✅ 微信登录/体验登录、游客 1 组试用、3 组/日、昵称头像、积分、学习记录、注销；**MySQL 8+/9** |
+| 微信配置 | ✅ AppID/AppSecret 已填写并加载，`/health.wechat_login=true`；真实 `wx.login` code 待真机走查 |
+| 上线合规 | ⏳ S09–S13、真实 wx.login/真机、内容审核、备案待做 |
 
 ## 界面
 
@@ -36,6 +38,10 @@
 | --- | --- |
 | ![生成中](shots/generating.png) | ![预览](shots/preview.png) |
 
+| 个人中心 | 学习记录 | 设置 |
+| --- | --- | --- |
+| ![个人中心](shots/profile.png) | ![学习记录](shots/records.png) | ![设置](shots/settings.png) |
+
 完整报告：[shots/report-full.png](shots/report-full.png)。
 
 截图 375×812 @2x，来源 `miniapp/scripts/screenshot.js`；与 `prototype/` 已确认原型对照。
@@ -46,11 +52,16 @@
 
 ```bash
 cd backend
+./scripts/start_mysql_dev.sh     # 独立 MySQL 3307，不碰系统 3306
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env            # 可留空，默认走 Mock
+cp .env.example .env            # 填 MYSQL_* / WECHAT_*；可留空 AI key 走 Mock
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
+
+> 数据库已切换为 **MySQL 8+/9**。本地脚本会创建 `lwa_dev` / `lwa_test` 与用户 `lwa`；生产请配置 `MYSQL_*` 指向你的 MySQL，并先建 `utf8mb4` 库。旧 SQLite 文件不再读取。
+>
+> 环境变量模板：[`backend/.env.example`](backend/.env.example)（可提交/开源，不含真实密钥）；复制为 `backend/.env` 后填写 `WECHAT_APP_ID`、`WECHAT_APP_SECRET` 等。可用 `python3 scripts/check_env_example.py` 校验模板完整性与敏感项为空。
 
 - 接口文档：http://127.0.0.1:8000/docs
 - 健康检查：http://127.0.0.1:8000/api/v1/health （返回 `mode: mock | deepseek`）
@@ -119,8 +130,9 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | 部署上线 | [14-部署与运维手册](docs/14-部署与运维手册.md) |
 | 查报错 | [15-故障排查与FAQ](docs/15-故障排查与FAQ.md) |
 | 找术语/文件 | [17-术语表与索引](docs/17-术语表与索引.md) |
+| 看最终运行状态 | [20-最终交付与运行状态](docs/20-最终交付与运行状态.md) |
 
-完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
+完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [用户系统需求](docs/18-用户系统需求分析.md) · [用户系统实现](docs/19-用户系统实现与验收.md) · [最终运行状态](docs/20-最终交付与运行状态.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
 
 ## 技术栈
 
@@ -131,7 +143,7 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | AI | DeepSeek `deepseek-flash`（JSON Output，默认关闭思考） |
 | Prompt 编排 | LangChain 0.3.x（`ChatPromptTemplate` + LCEL + `ChatDeepSeek`） |
 | 检索 | DeepSeek Search API（`/v1/tools/search`，rerank≥1.5） |
-| 存储 | SQLite（WAL），仓储层隔离，可迁 PostgreSQL |
+| 存储 | **MySQL 8+/9**（PyMySQL，utf8mb4），仓储层隔离 |
 | 测试 | pytest + Playwright（H5 E2E / 截图） |
 
 选型对比见 [方案设计文档](方案设计文档.md) 第 3 章；LangChain/Taro 版本核实见 [docs/07](docs/07-技术核实.md)。
@@ -139,7 +151,10 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 ## 测试
 
 ```bash
-# 后端单测 + 接口测试（45 个用例，Mock 模式；含真实 ChatDeepSeek 请求形状测试）
+# 环境变量模板校验（确保无真实密钥、必需项齐全）
+python3 scripts/check_env_example.py
+
+# 后端单测 + 接口测试（73 个用例，Mock 模式；含微信 code2Session 请求形状测试）
 cd backend && .venv/bin/python -m pytest -q
 
 # 前端类型检查与构建
@@ -149,12 +164,12 @@ cd miniapp && npx tsc --noEmit && npm run build:weapp && npm run build:h5
 cd miniapp && python3 scripts/serve_h5.py dist-h5 10087 &
 node scripts/e2e.js
 
-# 演示数据 + 视觉截图
-SQLITE_PATH=../backend/data/app.db ../backend/.venv/bin/python scripts/seed_demo.py --reset
+# 演示数据 + 视觉截图（MySQL + 体验登录）
+../backend/.venv/bin/python scripts/seed_demo.py --reset
 node scripts/screenshot.js
 ```
 
-当前基线：**45 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（Mock 与真实模型各跑通一次；0 错误、0 404、375/390/768 无横向溢出）**。
+当前基线：**73 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（含游客→体验登录→个人中心→记录→造关→答题→结算→报告；0 错误、0 4xx、375/390/768 无横向溢出）**。
 
 真实模型单组实测（2026-11-09，阿里云 MaaS `deepseek-v4.1-flash-1017`）：tokens 约 2.9k in / 2.1k out（实测 2871/2072、2996/2176），估算成本 **¥0.022–0.023**；从创建到完成 15–20s（含作答），批改/报告约 3s。该网关无 Search API，`web_search=false`，来源为空。
 
@@ -163,10 +178,10 @@ node scripts/screenshot.js
 ```
 backend/            FastAPI：LangChain → 检索 → 提纲 → 出题 → 判分 → 报告
   app/chains/       Prompt 模板、ChatDeepSeek/MockChatModel、LCEL、解析
-  app/services/     question_gen / grading / reporting / chapters / settlement
-  tests/            pytest（43）
+  app/services/     question_gen / grading / reporting / chapters / settlement / auth / quota
+  tests/            pytest（73）
 miniapp/            Taro 小程序 / H5
-  src/pages/        S01–S08
+  src/pages/        S01–S08 + S11 个人中心 / 记录 / 设置 / 关于
   src/components/   设计系统组件
   src/styles/       tokens / components / noise
   src/assets/       SVG 图标、墨团、地图路径（gen_assets.py 生成）
@@ -181,23 +196,27 @@ shots/              S01–S08 验收截图
 - S01 首页：问候、连续天数、主卡、章节卡、今日挑战、tabbar
 - S02 章节地图：6 节点三态、墨团、底部抽屉、章末综合
 - S03 答题：一题一屏、选项/简答、圆点导航、未答确认、草稿恢复
-- S04 结算：三星、印章、正确率/用时/连击、经验、段位、解锁
+- S04 结算：三星、印章、正确率/用时/连击、积分、段位、解锁
 - S05 报告：分数、诊断、分题型、缺口、下一步、逐题解析、来源、再练
 - S06 造关输入：200 字、示例、难度/题量/题型
 - S07 生成中：三步真实进度、慢等待提示、失败重试、稍后回来
 - S08 预览：章节卡、题目列表、来源、重新生成、开始闯关
 - 后端：章节/进度/结算/日挑战/章末综合/失败重试/个人统计
+- **用户系统**：微信一键登录（首次自动注册）/体验登录、登录态与退出、游客 1 组试用、登录 3 组/日、游客数据迁移、昵称头像、积分、学习记录列表、设置/隐私/注销
+- **MySQL 8+/9**（PyMySQL）；`users/auth_tokens/user_settings/guest_trials` 等表；越权访问 404
 - LangChain 0.3.x 编排四条 Prompt 链；JSON mode、思考开关、空 content 重试
-- Mock/真实双模式、客户端隔离、限流、SQLite 迁移
+- Mock/真实双模式、客户端隔离、限流、账号隔离
 
 ## 尚未实现
 
-- S09 错题本、S10 成就、S11 个人中心、S12 分享、S13 排行榜（P1/P2）
-- 登录与跨端同步、配额执行、`msgSecCheck` 内容审核
-- 小程序码、真机验收、多轮追问、指定信息源
+- S09 错题本、S10 成就、S12 分享、S13 排行榜（P1/P2）
+- 真实 `wx.login` code / 微信真机登录走查（AppID/AppSecret 已配置）
+- `msgSecCheck` 内容审核、备案、小程序码、多轮追问、指定信息源
 
 ## 注意
 
+- 数据库为 MySQL；本地开发用 `backend/scripts/start_mysql_dev.sh`，生产配置 `MYSQL_*` 并先建库。
+- 微信 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 已填写并重启；`/health` 的 `wechat_login=true`。真实登录还需开发者工具/真机的 `wx.login` code；开发/验收也可用“体验登录”。
 - 生产环境必须使用 HTTPS 已备案域名，并在微信公众平台配置 request 合法域名。
 - `backend/.env` 含密钥，不要提交到仓库或前端；如怀疑泄露请立即轮换。
 - 内容由 AI 生成，上线前需补充 AI 生成标识、内容审核与免责声明。

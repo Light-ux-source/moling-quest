@@ -2,11 +2,12 @@
 
 | 项 | 内容 |
 | --- | --- |
-| 版本 | v1.0（对应后端 v0.2.0） |
+| 版本 | v1.1（对应后端 v0.3.0） |
 | Base URL | `http://127.0.0.1:8000`（本地）；生产为 HTTPS 域名 |
 | 前缀 | `/api/v1` |
 | 格式 | `application/json`；UTF-8；时间为 ISO 8601 UTC |
-| 认证 | MVP 无登录；`X-Client-Id` 匿名设备标识 |
+| 认证 | 可选 `Authorization: Bearer <token>`；游客用 `X-Client-Id`；登录后资源按 `user_id` 隔离 |
+| 存储 | MySQL 8+/9（PyMySQL）；开发实例 3307，生产由 `MYSQL_*` 配置 |
 | OpenAPI | 启动后访问 `/docs` 或 `/openapi.json` |
 
 > 字段定义以 `backend/app/schemas.py` 为准；数据表见 [10-数据模型与迁移](./10-数据模型与迁移.md)；时序见 [08-系统架构与代码地图](./08-系统架构与代码地图.md)。
@@ -20,10 +21,11 @@
 | 头 | 必填 | 说明 |
 | --- | --- | --- |
 | `Content-Type` | POST/PATCH 必填 | `application/json` |
-| `X-Client-Id` | 推荐 | 匿名设备 ID（`[A-Za-z0-9_-]`，≤64）。缺省为 `anonymous`；用于章节/统计隔离 |
+| `X-Client-Id` | 推荐 | 匿名设备 ID（`[A-Za-z0-9_-]`，≤64）。缺省为 `anonymous`；用于游客隔离与登录时数据迁移 |
+| `Authorization` | 登录后必填 | `Bearer <token>`；由 `/auth/wechat` 或 `/auth/dev` 返回 |
 | `X-Forwarded-For` | 反向代理时 | 取首个 IP 做限流 |
 
-> `X-Client-Id` 不是安全凭证。`session_id` 才是单次学习的凭证；知道 ID 即可读取该会话。M4 登录后再加归属校验。
+> `X-Client-Id` 不是安全凭证。登录用户的会话/报告/章节按 `user_id` 校验，跨用户访问返回 404；游客只能访问本设备且尚未归属账号的数据。
 
 ### 1.2 错误体
 
@@ -34,17 +36,18 @@
 | HTTP | 场景 | 客户端处理 |
 | ---: | --- | --- |
 | 400 | 答案里出现无效 `question_id` | 提示并允许重新提交 |
-| 401/402 | **不直接由本 API 返回**；DeepSeek 上游错误写入 `session.error`，`GET /report`/`/settlement` 返回 409 | 检查后端 `.env`/余额；换 Key 后重试 |
+| 401 | 令牌缺失/过期/已撤销，或需要登录的操作 | 清理本地登录态并重新登录 |
+| 402 | DeepSeek 上游余额/Key 错误会写入 `session.error`，报告/结算返回 409 | 检查后端 `.env`/余额；换 Key 后重试 |
 | 404 | 会话/章节不存在 | 回首页重新开始 |
 | 409 | 生成中提交、重复提交、报告未完成、结算未完成、章末未解锁 | 继续轮询或提示已提交 |
 | 422 | 参数校验失败（主题过短、题量越界、progress 越界） | 定位到输入框 |
-| 429 | 触发限流 | 提示稍后再试 |
+| 429 | IP 限流、登录尝试过多、游客试用/每日额度用尽 | 提示恢复时间；游客引导登录 |
 | 500 | 未处理异常 | 通用错误 + 重试 |
 | 503/超时 | 生成阶段失败会落为 `session.status=failed`；API 本身不返回 503 | S07 重试/换主题 |
 
 ### 1.3 限流与幂等
 
-- 创建会话按 IP **30 次/小时**（`RATE_LIMIT_PER_HOUR`，进程内内存）。多实例部署会失效，M4 迁 Redis。
+- 创建会话按 IP **30 次/小时**（`RATE_LIMIT_PER_HOUR`，进程内内存）；登录按 IP **20 次/小时**（`LOGIN_RATE_LIMIT_PER_HOUR`）。多实例部署会失效，后续迁 Redis。
 - 创建会话**不幂等**：每次调用创建新 session/chapter；前端按钮需防连点。
 - 提交答案：同一 session 重复提交返回 **409**；不会覆盖已完成报告。
 - 章末综合：同一章节只生成一次，重复返回 409。
@@ -71,11 +74,22 @@
 | 6 | GET | `/sessions/{id}/report` | 获取报告快照 | 200 |
 | 7 | GET | `/sessions/{id}/settlement` | 获取星级/经验/段位 | 200 |
 | 8 | POST | `/sessions/{id}/retry` | 失败原位重试 | 202 |
+| 8.1 | POST | `/sessions/{id}/regenerate` | 预览页重新生成（复用会话，不扣额度） | 202 |
 | 9 | GET | `/chapters` | 当前 client 的章节列表 | 200 |
 | 10 | GET | `/chapters/{id}` | 章节详情 + 节点 | 200 |
 | 11 | POST | `/chapters/{id}/comprehensive` | 生成章末综合 | 202 |
 | 12 | GET | `/profile` | 个人统计/段位/额度 | 200 |
-| 13 | GET | `/sessions` | 最近会话（调试/运维） | 200 |
+| 13 | GET | `/sessions` | 最近会话（按登录用户/游客） | 200 |
+| 14 | POST | `/auth/wechat` | 微信 code 登录/自动注册 | 200 |
+| 15 | POST | `/auth/dev` | 开发体验登录（生产禁用） | 200 |
+| 16 | GET | `/auth/me` | 当前登录态 | 200/401 |
+| 17 | POST | `/auth/logout` | 撤销当前 token | 200 |
+| 18 | PATCH | `/profile` | 修改昵称/头像 | 200 |
+| 19 | POST | `/profile/avatar` | 上传头像 | 200 |
+| 20 | GET | `/profile/settings` | 读取提醒偏好 | 200 |
+| 21 | PATCH | `/profile/settings` | 更新提醒偏好 | 200 |
+| 22 | DELETE | `/profile` | 注销账号 | 204 |
+| 23 | GET | `/records` | 学习记录列表（仅列表） | 200 |
 
 ---
 
@@ -88,10 +102,14 @@
 ```json
 {
   "status": "ok",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "mode": "mock",
   "model": "mock-deepseek-flash",
-  "web_search": false
+  "web_search": false,
+  "database": "mysql",
+  "auth": "wechat",
+  "wechat_login": false,
+  "dev_login": true
 }
 ```
 
@@ -100,6 +118,9 @@
 | `mode` | `mock` / `deepseek` |
 | `model` | Mock 为 `mock-deepseek-flash`；真实为配置的模型 ID（当前网关注入 `deepseek-v4.1-flash-1017`） |
 | `web_search` | 真实模式且开启检索时为 `true` |
+| `database` | 固定 `mysql` |
+| `auth` | 固定 `wechat`；`wechat_login` 表示 AppID+Secret 是否齐全（当前本地已填写并加载，返回 `true`） |
+| `dev_login` | 非生产且 `DEV_LOGIN_ENABLED=true` 时为 `true` |
 
 ---
 
@@ -384,6 +405,20 @@
 
 ---
 
+### 3.8.1 `POST /api/v1/sessions/{id}/regenerate`
+
+预览页“重新生成”专用：只允许 `ready`（已生成、未提交）会话；复用原 `session_id` / `chapter_id`，清空题目、答案、报告和来源后原位重新生成。
+
+- **不创建新会话/章节，不消耗游客试用或每日额度**；失败仍按“整组失败返还”处理。
+- 重复点击/并发调用时，第一次会立刻把状态改为 `queued`，后续请求返回 409。
+- `failed` 会话请走 `/retry`，已完成/批改中的会话不可重新生成。
+
+**响应 202（SessionDetail，status=queued，id/chapter_id 不变）**
+
+**错误**：404（不存在/越权）；409（非 ready）。
+
+---
+
 ### 3.9 `GET /api/v1/chapters?limit=10`
 
 按 `X-Client-Id` 返回章节列表，按创建时间倒序。
@@ -488,35 +523,20 @@
 
 ### 3.12 `GET /api/v1/profile`
 
-按 `X-Client-Id` 返回个人统计。
-
-```json
-{
-  "client_id": "ml_abc123",
-  "nickname": "旅人",
-  "chapters_completed": 1,
-  "total_stars": 3,
-  "total_exp": 160,
-  "leaf_count": 160,
-  "streak_days": 1,
-  "rank": { "key": "S2", "label": "苔径旅人", "exp": 160, "next_key": "S3", "next_label": "青苔行者", "exp_to_next": 140, "progress_pct": 30 },
-  "quota": { "used": 1, "limit": 10, "remaining": 9, "period": "month" },
-  "weekly": [{ "date": "2026-11-03", "exp": 0 }],
-  "recent_chapters": []
-}
-```
+按登录用户（Bearer）或游客设备（`X-Client-Id`）返回个人统计。**v0.3.0 起新增 `user_id/avatar_url/is_guest/is_logged_in/wechat_bound/points/settings/quota`**，完整字段与游客/登录口径见第 7.5 节。
 
 **口径**：
-- `chapters_completed`：该 client 已完成的 session 数（含 daily/comprehensive）。
-- `total_stars` / `total_exp`：已完成 session 的汇总。
+- `chapters_completed`：该账号/设备已完成的 session 数（含 daily/comprehensive）。
+- `total_stars` / `total_exp`：已完成 session 的汇总；`points` 等于 `total_exp`。
 - `streak_days`：按 Asia/Shanghai 日期连续完成天数；今天没有则从昨天起算。
-- `quota.used`：本月创建的 session 数；`limit` 只展示，不强制拦截（M4 执行）。
+- `quota`：登录用户 `period=day`、`limit=3`；游客 `period=trial`、`limit=1`；`quota_enforced` 控制是否拦截。
+- 游客/登录双态：`is_guest`、`is_logged_in`、`nickname`、`avatar_url`。
 
 ---
 
 ### 3.13 `GET /api/v1/sessions?limit=10`
 
-运维/调试用最近会话，按 `X-Client-Id` 过滤。
+最近会话：登录用户按 `user_id`，游客按 `X-Client-Id` 且未归属账号。
 
 ```json
 {
@@ -620,3 +640,161 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
 - 当前 `app_version=0.2.0`；接口前缀 `/api/v1`。新增字段保持向后兼容（客户端忽略未知字段）。
 - 破坏性变更需新增 `/api/v2` 或至少同步 [09] / [05] / [11]。
 - 2026-11-09 实测：45 pytest、H5 E2E、双端构建通过；Mock 与真实模型（阿里云 MaaS 网关）各跑通一次。真实模式 `/health` 返回 `mode=deepseek`、`model=deepseek-v4.1-flash-1017`、`web_search=false`（该网关无 DeepSeek Search API）。
+
+---
+
+## 7. 用户系统接口（v0.3.0）
+
+### 7.1 `POST /api/v1/auth/wechat`
+
+```json
+{ "code": "wx.login 返回的 code", "nickname": "可选，≤16 字", "avatar_url": "可选，仅 http(s) 或 /media/" }
+```
+
+响应 200：
+
+```json
+{
+  "token": "32 字节随机串",
+  "expires_at": "2026-12-10T01:40:09+00:00",
+  "user": {
+    "id": "u_...",
+    "nickname": "旅人",
+    "avatar_url": null,
+    "wechat_bound": true,
+    "is_guest": false
+  },
+  "migrated": { "sessions": 2, "chapters": 2 }
+}
+```
+
+- 首次 openid 自动建号；同一 openid 再登录同一账号。
+- 未配置 `WECHAT_APP_SECRET` 时返回 **503**；code 无效/已使用返回 400；频繁返回 429。
+- 服务端调用官方 `GET https://api.weixin.qq.com/sns/jscode2session?appid=...&secret=...&js_code=...&grant_type=authorization_code`。
+
+### 7.2 `POST /api/v1/auth/dev`
+
+```json
+{ "nickname": "可选" }
+```
+
+- 仅 `ENV != production` 且 `DEV_LOGIN_ENABLED=true`；生产返回 403。
+- 同一 `X-Client-Id` 的体验账号稳定；用于 H5/E2E。
+
+### 7.3 `GET /api/v1/auth/me`
+
+- 无 token：`{"authenticated": false, "user": null}`
+- 有 token 但过期/撤销：401
+- 正常：`{"authenticated": true, "user": {...}}`
+
+### 7.4 `POST /api/v1/auth/logout`
+
+撤销当前 Bearer token；重复调用无副作用。
+
+### 7.5 `GET /api/v1/profile`
+
+在原有字段上新增：
+
+```json
+{
+  "user_id": "u_...",
+  "avatar_url": null,
+  "is_guest": false,
+  "is_logged_in": true,
+  "wechat_bound": true,
+  "points": 240,
+  "quota": {
+    "used": 1,
+    "limit": 3,
+    "remaining": 2,
+    "period": "day",
+    "source": "daily",
+    "reset_at": "2026-11-10T16:00:00+00:00",
+    "is_guest": false
+  },
+  "settings": { "reminder_enabled": false }
+}
+```
+
+- 游客：`is_guest=true`，`quota.period="trial"`、`limit=1`、`used=0|1`。
+- 登录用户：`period="day"`、`limit=3`；VIP 10 只预留，本期不开放。
+- 积分 `points` 等于累计 `exp`；`total_exp` 保留兼容。
+
+### 7.6 `PATCH /api/v1/profile`
+
+```json
+{ "nickname": "雾林阿墨", "avatar_url": "/media/avatars/u_...png" }
+```
+
+- 昵称 1–16 字；头像地址必须 `/media/` 或 http(s)。
+- 需要登录；401 未登录。
+
+### 7.7 `POST /api/v1/profile/avatar`
+
+`multipart/form-data`，字段名 `file`；JPG/PNG/WebP，≤2MB。响应：
+
+```json
+{ "avatar_url": "/media/avatars/u_xxx_ab12cd34ef.png" }
+```
+
+- 静态访问：`GET /media/avatars/<filename>`。
+- 生产建议接对象存储 + CDN；当前为本地目录。
+
+### 7.8 `GET/PATCH /api/v1/profile/settings`
+
+```json
+{ "reminder_enabled": true }
+```
+
+本期只保存偏好，不发送订阅消息；需要登录。
+
+### 7.9 `DELETE /api/v1/profile`
+
+- 204；撤销全部 token；昵称/头像/openid 删除；学习记录匿名化（`user_id=NULL`、`client_id=deleted_<id>`）。
+- 注销后不可恢复；重新微信登录视为新账号。
+
+### 7.10 `GET /api/v1/records?limit=20&offset=0`
+
+```json
+{
+  "items": [
+    {
+      "id": "s_...",
+      "chapter_id": "c_...",
+      "topic": "HTTP 缓存",
+      "level": "basic",
+      "level_label": "入门",
+      "kind": "standard",
+      "status": "completed",
+      "status_label": "已完成",
+      "question_count": 5,
+      "stars": 2,
+      "accuracy": 0.8,
+      "points": 120,
+      "created_at": "2026-11-10T01:40:15+00:00",
+      "completed_at": "2026-11-10T01:41:02+00:00"
+    }
+  ],
+  "total": 1,
+  "has_more": false
+}
+```
+
+- 只列表，不提供历史报告详情路由；报告详情仍用 `/sessions/{id}/report`。
+- 登录用户按账号，游客按设备；页面 20 条，上拉加载。
+
+### 7.11 配额错误（429）
+
+```json
+{ "detail": "已体验 1 组。登录后可继续造关，学习记录也会跟着账号走。" }
+```
+
+或：
+
+```json
+{ "detail": "今天的 3 组已经用完，明天 00:00 恢复。先去复习一下已学的内容吧。" }
+```
+
+- 前端根据 429 + 当前是否登录决定弹登录或展示额度用完：游客打开登录弹层；登录用户弹「今日额度已用完」并提供 **回首页** 出口。
+- 失败重试不重复扣；整组失败返还（用户 `quota_refunded=1`，游客退回试用）。
+- 预览页“重新生成”走 `/sessions/{id}/regenerate`，不新建会话、不重复扣额度。

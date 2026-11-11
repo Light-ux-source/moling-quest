@@ -1,0 +1,145 @@
+/* 关于 / 隐私 / 协议 */
+.about-page {
+  padding: 8px 40px 0;
+}
+
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px 0 30px;
+}
+
+.about-hero-title {
+  margin-top: 8px;
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.about-hero-sub {
+  margin-top: 4px;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--ink-3);
+}
+
+.about-version {
+  margin-top: 10px;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  color: var(--ink-3);
+}
+
+.about-card {
+  padding: 28px;
+  margin-bottom: 20px;
+  border-radius: 32px;
+  background: var(--card);
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow-s);
+}
+
+.about-card-title {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.about-body {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+
+.about-inline-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.about-feedback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: var(--paper-2);
+}
+
+.about-feedback-label {
+  font-family: var(--font-sans);
+  font-size: 21px;
+  color: var(--ink-3);
+}
+
+.about-feedback-value {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.about-feedback-copy {
+  font-family: var(--font-sans);
+  font-size: 21px;
+  color: var(--moss-deep);
+  font-weight: 600;
+}
+
+.about-doc-head {
+  padding: 6px 0 22px;
+}
+
+.about-doc-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.about-doc-date {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  color: var(--ink-3);
+}
+
+.about-doc-section {
+  padding: 22px 0;
+  border-bottom: 2px solid #e4dccb;
+}
+
+.about-doc-section-title {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.about-disclaimer {
+  display: block;
+  margin-top: 22px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 1.7;
+  color: var(--ink-3);
+}
+
+.about-bottom-space {
+  height: 60px;
+}

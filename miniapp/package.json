@@ -1,6 +1,6 @@
 {
   "name": "learning-with-ai-miniapp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "AI 出题学习助手 - Taro 小程序端",
   "templateInfo": {

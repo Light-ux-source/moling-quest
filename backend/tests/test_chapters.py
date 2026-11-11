@@ -265,8 +265,9 @@ async def test_profile_is_scoped_and_quota_is_displayed(client):
     b = (await client.get(f"{BASE}/profile", headers=headers("c_profile_b"))).json()
     assert a["chapters_completed"] == 1
     assert a["streak_days"] >= 1
-    assert a["quota"]["used"] >= 1
-    assert a["quota"]["limit"] == 10
+    assert a["quota"]["used"] >= 0
+    assert a["quota"]["limit"] >= 1
+    assert a["quota"]["period"] in {"day", "trial"}
     assert b["chapters_completed"] == 0
     assert b["total_stars"] == 0
 

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .api.routes import router
@@ -26,12 +28,16 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     db.init_db()
+    Path(settings.avatar_upload_dir).mkdir(parents=True, exist_ok=True)
     logger.info(
-        "服务启动 env=%s mode=%s model=%s search=%s",
+        "服务启动 env=%s mode=%s model=%s search=%s db=%s wechat_login=%s dev_login=%s",
         settings.env,
         settings.mode,
         settings.deepseek_model,
         settings.enable_web_search and not settings.is_mock,
+        settings.mysql_dsn_safe,
+        settings.wechat_login_configured,
+        settings.dev_login_allowed,
     )
     if settings.is_mock:
         logger.warning("当前为 Mock 模式（未配置 DEEPSEEK_API_KEY），AI 结果为演示数据")
@@ -56,6 +62,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router)
+Path(settings.avatar_upload_dir).mkdir(parents=True, exist_ok=True)
+app.mount("/media/avatars", StaticFiles(directory=settings.avatar_upload_dir), name="avatars")
 
 
 @app.exception_handler(Exception)

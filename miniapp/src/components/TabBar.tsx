@@ -12,13 +12,13 @@ const ITEMS: Array<{ key: TabKey; label: string; icon: string; disabled?: boolea
   { key: 'home', label: '闯关', icon: 'tab-home' },
   { key: 'explore', label: '探索', icon: 'tab-compass' },
   { key: 'mistakes', label: '错题', icon: 'tab-book', disabled: true },
-  { key: 'profile', label: '我的', icon: 'tab-user', disabled: true }
+  { key: 'profile', label: '我的', icon: 'tab-user' }
 ]
 
 export default function TabBar({ active = 'home' }: TabBarProps) {
   const go = (key: TabKey, disabled?: boolean) => {
     if (disabled) {
-      Taro.showToast({ title: '这个入口下一版开放', icon: 'none' })
+      Taro.showToast({ title: '错题本即将开放', icon: 'none' })
       return
     }
     if (key === active) return
@@ -28,6 +28,10 @@ export default function TabBar({ active = 'home' }: TabBarProps) {
     }
     if (key === 'explore') {
       Taro.navigateTo({ url: '/pages/create/index' })
+      return
+    }
+    if (key === 'profile') {
+      Taro.reLaunch({ url: '/pages/profile/index' })
     }
   }
 

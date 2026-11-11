@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text, Textarea } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
 import PageHeader from '../../components/PageHeader'
 import Icon from '../../components/Icon'
+import LoginSheet from '../../components/LoginSheet'
 import { createSession, pushRecentSession } from '../../services/api'
 import type { Level, QuestionType } from '../../types'
 import { ALL_TYPES, LEVEL_META, TYPE_META } from '../../types'
 import { safeDecode } from '../../utils/format'
+import { errorMessage, handleCreateError } from '../../utils/quota'
 import './index.css'
 
 const EXAMPLES = [
@@ -28,6 +30,8 @@ export default function CreatePage() {
   const [types, setTypes] = useState<QuestionType[]>(ALL_TYPES)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [loginOpen, setLoginOpen] = useState(false)
+  const submittingRef = useRef(false)
 
   const toggleType = (key: QuestionType) => {
     setTypes((prev) => {
@@ -56,7 +60,8 @@ export default function CreatePage() {
       setError('至少选择一种题型')
       return
     }
-    if (submitting) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setError('')
     setSubmitting(true)
     try {
@@ -77,8 +82,13 @@ export default function CreatePage() {
       })
       Taro.navigateTo({ url: `/pages/generating/index?sessionId=${session.id}` })
     } catch (err) {
-      setError((err as Error).message || '创建失败，请重试')
+      if (await handleCreateError(err, () => setLoginOpen(true))) {
+        setError('')
+      } else {
+        setError(errorMessage(err, '创建失败，请重试'))
+      }
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -185,6 +195,16 @@ export default function CreatePage() {
           {submitting ? '正在创建…' : '生成关卡'}
         </View>
       </View>
+
+      <LoginSheet
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => {
+          setLoginOpen(false)
+          Taro.showToast({ title: '登录成功，可以继续造关了', icon: 'success' })
+        }}
+        reason='已体验 1 组。登录后可继续造关，学习记录也会跟着账号走。'
+      />
     </PageShell>
   )
 }
