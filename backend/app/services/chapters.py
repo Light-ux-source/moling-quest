@@ -252,7 +252,6 @@ def build_profile(client_id: str, user: Optional[Dict[str, Any]] = None) -> Dict
 
     rank = rank_for_exp(total_exp)
     quota = quota_snapshot(user, client_id)
-    user_settings = db.get_user_settings(user_id) if user_id else {"reminder_enabled": False}
     return {
         "client_id": client_id,
         "user_id": user_id,
@@ -269,7 +268,6 @@ def build_profile(client_id: str, user: Optional[Dict[str, Any]] = None) -> Dict
         "streak_days": streak,
         "rank": rank,
         "quota": quota,
-        "settings": {"reminder_enabled": bool(user_settings.get("reminder_enabled"))},
         "weekly": weekly,
         "recent_chapters": list_chapter_summaries(client_id, 3, user_id=user_id),
         "monthly_used": used,

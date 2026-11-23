@@ -24,11 +24,11 @@ async def test_guest_profile_has_default_identity_and_trial_quota(client):
     assert body["nickname"] == "旅人"
     assert body["points"] == 0
     assert body["quota"]["period"] == "trial"
-    assert body["settings"]["reminder_enabled"] is False
+    assert "settings" not in body
 
 
 @pytest.mark.asyncio
-async def test_update_nickname_and_settings(client):
+async def test_update_nickname_only_and_reminder_endpoints_removed(client):
     token, _ = await dev_login(client, "profile_update", "旅人")
     res = await client.patch(
         f"{BASE}/profile",
@@ -38,22 +38,21 @@ async def test_update_nickname_and_settings(client):
     assert res.status_code == 200, res.text
     assert res.json()["nickname"] == "雾林阿墨"
 
+    # 学习提醒已整体删除：接口不再存在，资料响应也不再携带 settings
     settings = await client.get(
         f"{BASE}/profile/settings", headers=headers("profile_update", token)
     )
-    assert settings.status_code == 200
-    assert settings.json()["reminder_enabled"] is False
-
+    assert settings.status_code == 404
     updated = await client.patch(
         f"{BASE}/profile/settings",
         json={"reminder_enabled": True},
         headers=headers("profile_update", token),
     )
-    assert updated.status_code == 200
-    assert updated.json()["reminder_enabled"] is True
+    assert updated.status_code == 404
 
     profile = await client.get(f"{BASE}/profile", headers=headers("profile_update", token))
-    assert profile.json()["settings"]["reminder_enabled"] is True
+    assert profile.status_code == 200
+    assert "settings" not in profile.json()
 
 
 @pytest.mark.asyncio
@@ -133,7 +132,7 @@ async def test_records_are_scoped_by_guest_client(client):
 
 
 @pytest.mark.asyncio
-async def test_delete_account_anonymizes_and_requires_new_login(client):
+async def test_delete_account_anonymizes_and_blocks_immediate_reregister(client):
     token, user = await dev_login(client, "profile_delete", "要注销的人")
     await create_ready(client, "profile_delete", token, topic="注销前的记录")
 
@@ -146,7 +145,30 @@ async def test_delete_account_anonymizes_and_requires_new_login(client):
     guest_profile = await client.get(f"{BASE}/profile", headers=headers("profile_delete"))
     assert guest_profile.json()["is_guest"] is True
 
-    new_token, new_user = await dev_login(client, "profile_delete")
+    blocked = await client.post(
+        f"{BASE}/auth/dev",
+        json={},
+        headers=headers("profile_delete"),
+    )
+    assert blocked.status_code == 403
+    assert "24" in blocked.json()["detail"]
+
+    # 冷却期结束后视为新账号；旧学习记录仍不可见
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET deleted_at = %s WHERE id = %s",
+                ("2000-01-01T00:00:00+00:00", user["id"]),
+            )
+
+    again = await client.post(
+        f"{BASE}/auth/dev",
+        json={},
+        headers=headers("profile_delete"),
+    )
+    assert again.status_code == 200, again.text
+    new_user = again.json()["user"]
+    new_token = again.json()["token"]
     assert new_user["id"] != user["id"]
     records = await client.get(f"{BASE}/records", headers=headers("profile_delete", new_token))
     assert records.json()["total"] == 0

@@ -105,6 +105,9 @@ async def test_mock_generate_chain_returns_questions():
         {
             "topic": "HTTP 缓存",
             "count": 5,
+            "batch_note": "单批测试",
+            "type_mix_note": "至少包含一种客观题和一种主观题",
+            "avoid_stems": "（无）",
             "level_guide": "入门",
             "type_desc": "单选题、简答题",
             "type_rules": "题型规范",

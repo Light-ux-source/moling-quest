@@ -57,6 +57,7 @@ async def test_wechat_login_maps_openid_and_is_idempotent(client, monkeypatch):
     )
     assert first.status_code == 200, first.text
     data = first.json()
+    assert data["is_new"] is True
     assert data["user"]["wechat_bound"] is True
     assert data["user"]["nickname"] == "微信旅人"
 
@@ -66,6 +67,7 @@ async def test_wechat_login_maps_openid_and_is_idempotent(client, monkeypatch):
         headers=headers("wx_client_2"),
     )
     assert second.status_code == 200, second.text
+    assert second.json()["is_new"] is False
     assert second.json()["user"]["id"] == data["user"]["id"]
 
 
@@ -156,6 +158,62 @@ async def test_wechat_exchange_uses_official_endpoint_and_params(client, monkeyp
     assert captured["params"]["secret"] == get_settings().wechat_app_secret
     assert captured["params"]["js_code"] == "the_code"
     assert captured["params"]["grant_type"] == "authorization_code"
+
+
+@pytest.mark.asyncio
+async def test_wechat_delete_blocks_reregister_for_24h_then_allows_new_account(client, monkeypatch):
+    async def fake_exchange(code: str):
+        return {"openid": "openid_other" if code == "other_code" else "openid_cooldown"}
+
+    monkeypatch.setattr(auth_service, "wechat_exchange_code", fake_exchange)
+    first = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "cooldown_code"},
+        headers=headers("wx_cooldown_1"),
+    )
+    assert first.status_code == 200, first.text
+    old_user = first.json()["user"]
+    token = first.json()["token"]
+
+    deleted = await client.delete(f"{BASE}/profile", headers=headers("wx_cooldown_1", token))
+    assert deleted.status_code == 204
+
+    blocked = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "cooldown_code"},
+        headers=headers("wx_cooldown_2"),
+    )
+    assert blocked.status_code == 403, blocked.text
+    assert "24" in blocked.json()["detail"]
+
+    # 模拟冷却期已过：只改 deleted_at，身份哈希仍保留在注销账户上
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET deleted_at = %s WHERE id = %s",
+                ("2000-01-01T00:00:00+00:00", old_user["id"]),
+            )
+
+    # 另一次登录会触发过期哈希清理，注销账户不再保留可关联身份
+    other = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "other_code"},
+        headers=headers("wx_cooldown_other"),
+    )
+    assert other.status_code == 200, other.text
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT identity_hash FROM users WHERE id = %s", (old_user["id"],))
+            assert (cur.fetchone() or {}).get("identity_hash") is None
+
+    again = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "cooldown_code"},
+        headers=headers("wx_cooldown_3"),
+    )
+    assert again.status_code == 200, again.text
+    assert again.json()["is_new"] is True
+    assert again.json()["user"]["id"] != old_user["id"]
 
 
 @pytest.mark.asyncio

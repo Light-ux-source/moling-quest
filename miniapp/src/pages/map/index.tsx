@@ -17,13 +17,12 @@ import { errorMessage, handleCreateError } from '../../utils/quota'
 import { FINAL_POSITION, NODE_LAYOUTS } from '../../utils/mapLayout'
 import './index.css'
 
-const LAYOUT_KEYS = [3, 5, 8]
-
 function layoutKeyFor(count: number): number {
-  if (LAYOUT_KEYS.includes(count)) return count
+  if (NODE_LAYOUTS[count]) return count
   if (count <= 3) return 3
   if (count <= 5) return 5
-  return 8
+  if (count <= 8) return 8
+  return 15
 }
 
 function nodeClass(node: ChapterNode): string {
@@ -70,6 +69,7 @@ export default function MapPage() {
   })
 
   const layoutKey = layoutKeyFor(chapter?.question_count || 5)
+  const denseMap = ![3, 5, 8].includes(layoutKey)
   const positions = useMemo(() => {
     if (!chapter) return []
     const base = NODE_LAYOUTS[layoutKey] || NODE_LAYOUTS[5]
@@ -111,7 +111,7 @@ export default function MapPage() {
       return
     }
     if (finalNode?.status !== 'unlocked') {
-      toast('前 5 关全部满星后解锁章末综合')
+      toast(`全部 ${chapter.question_count} 关满星后解锁章末综合`)
       return
     }
     creatingRef.current = true
@@ -161,7 +161,7 @@ export default function MapPage() {
       if (selected.status === 'done') return '查看综合报告'
       if (selected.status === 'current') return '继续综合关'
       if (selected.status === 'unlocked') return creating ? '正在造关…' : '生成章末综合'
-      return '完成前 5 关解锁'
+      return `完成全部 ${chapter.question_count} 关解锁`
     }
     if (selected.status === 'locked') return '完成上一关解锁'
     if (isCompleted) return '查看本关报告'
@@ -171,7 +171,7 @@ export default function MapPage() {
   const sheetSub = (() => {
     if (!chapter || !selected) return ''
     if (selected.kind === 'comprehensive') {
-      return `3 题 · 约 3 分钟 · ${selected.status === 'done' ? `最佳 ${starText(selected.stars)}` : '前 5 关满星解锁'}`
+      return `3 题 · 约 3 分钟 · ${selected.status === 'done' ? `最佳 ${starText(selected.stars)}` : '全部关卡满星解锁'}`
     }
     return `${chapter.question_count} 题 · 约 ${estimateMinutes(chapter.question_count)} 分钟 · 最佳 ${starText(chapter.stars)}`
   })()
@@ -223,7 +223,7 @@ export default function MapPage() {
       />
 
       <View className='map-canvas-wrap'>
-        <View className='map-canvas'>
+        <View className={`map-canvas ${denseMap ? 'dense' : ''}`}>
           <Image
             className='map-path'
             src={`/assets/map/path-${layoutKey}.svg`}

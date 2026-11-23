@@ -230,33 +230,81 @@ async def generate_for_session(session_id: str) -> None:
         )
 
         type_desc = "、".join(TYPE_LABELS.get(t, t) for t in allowed_types)
+        has_objective = any(t in OBJECTIVE_TYPES for t in allowed_types)
+        has_subjective = "short_answer" in allowed_types
+        if has_objective and has_subjective:
+            type_mix_note = "至少包含一种客观题和一种主观题"
+        elif has_objective:
+            type_mix_note = "本组只生成客观题，不要生成简答题"
+        else:
+            type_mix_note = "本组只生成简答题，不要生成客观题"
         source_urls = [s.url for s in sources if s.url]
         url_hint = "、".join(source_urls[:5]) if source_urls else "（无可用链接，source_refs 留空数组）"
-        gen_result = await llm.run(
-            "generate",
-            {
-                "topic": topic,
-                "count": count,
-                "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
-                "type_desc": type_desc,
-                "type_rules": TYPE_RULES,
-                "brief_json": json.dumps(brief, ensure_ascii=False, indent=2),
-                "url_hint": url_hint,
-            },
-            context={
-                "topic": topic,
-                "count": count,
-                "types": allowed_types,
-                "brief": brief,
-            },
-            temperature=0.7,
-            max_tokens=4000,
-        )
-        db.add_usage(session_id, gen_result.tokens_in, gen_result.tokens_out, gen_result.cost_cny)
+        # 真实网关单次输出约 4k tokens，15 题会被截断；按 5 题分批生成再合并去重。
+        batch_size = max(1, int(settings.question_generate_batch_size))
+        batch_total = (count + batch_size - 1) // batch_size
+        raw_questions: List[Any] = []
+        seen_stems: List[str] = []
+        avoid_stems = "（无）"
+        model_name: Optional[str] = None
 
-        raw = gen_result.data.get("questions")
+        for batch_index in range(batch_total):
+            offset = batch_index * batch_size
+            chunk = min(batch_size, count - offset)
+            batch_note = (
+                f"整套共 {count} 题；当前是第 {batch_index + 1}/{batch_total} 批，"
+                f"本批只输出 {chunk} 题。请围绕提纲中不同知识点出题，"
+                "避免与前面批次重复；不要因为篇幅省略题目。"
+            )
+            gen_result = await llm.run(
+                "generate",
+                {
+                    "topic": topic,
+                    "count": chunk,
+                    "batch_note": batch_note,
+                    "type_mix_note": type_mix_note,
+                    "avoid_stems": avoid_stems,
+                    "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
+                    "type_desc": type_desc,
+                    "type_rules": TYPE_RULES,
+                    "brief_json": json.dumps(brief, ensure_ascii=False, indent=2),
+                    "url_hint": url_hint,
+                },
+                context={
+                    "topic": topic,
+                    "count": chunk,
+                    "seq_offset": offset,
+                    "batch_index": batch_index,
+                    "batch_total": batch_total,
+                    "types": allowed_types,
+                    "brief": brief,
+                },
+                temperature=0.7,
+                max_tokens=max(4000, min(16000, chunk * 800)),
+            )
+            db.add_usage(
+                session_id,
+                gen_result.tokens_in,
+                gen_result.tokens_out,
+                gen_result.cost_cny,
+            )
+            model_name = model_name or gen_result.model
+            batch_raw = gen_result.data.get("questions")
+            if isinstance(batch_raw, list):
+                raw_questions.extend(batch_raw)
+                for item in batch_raw:
+                    if isinstance(item, dict):
+                        stem = str(item.get("stem") or "").strip()
+                        if stem:
+                            seen_stems.append(stem[:120])
+                avoid_stems = "\n".join(f"- {s}" for s in seen_stems[-12:]) or "（无）"
+            db.update_session(
+                session_id,
+                progress=68 + int(20 * (batch_index + 1) / batch_total),
+            )
+
         questions = validate_questions(
-            raw,
+            raw_questions,
             session_id=session_id,
             count=count,
             allowed_types=allowed_types,
@@ -269,7 +317,7 @@ async def generate_for_session(session_id: str) -> None:
             stage="ready",
             progress=100,
             error=None,
-            model=gen_result.model or usage.model,
+            model=model_name or usage.model,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("生成题目失败 session=%s", session_id)

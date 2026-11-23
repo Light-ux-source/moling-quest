@@ -108,3 +108,68 @@
 .quiz-footer .dots {
   padding: 16px 0 4px;
 }
+/* 自动下一题：题干上方右侧的小胶囊 */
+.quiz-tags {
+  align-items: center;
+}
+.quiz-tags-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+.auto-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--ink-3);
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: none;
+}
+.auto-next.on {
+  background: var(--moss-light);
+  border-color: rgba(62, 102, 80, 0.22);
+  color: var(--moss-deep);
+}
+.auto-next-track {
+  width: 30px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: #ded8c8;
+  padding: 2px;
+  box-sizing: border-box;
+  flex: none;
+}
+.auto-next.on .auto-next-track {
+  background: var(--moss);
+}
+.auto-next-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--card);
+  transition: transform var(--dur-base) ease-out;
+}
+.auto-next.on .auto-next-thumb {
+  transform: translateX(12px);
+}
+
+/* 15 题时圆点导航收紧，避免横向溢出 */
+.quiz-footer .dots.compact {
+  gap: 6px;
+}
+.quiz-footer .dots.compact .dot {
+  width: 8px;
+  height: 8px;
+}
+.quiz-footer .dots.compact .dot.current {
+  width: 20px;
+}

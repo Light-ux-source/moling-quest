@@ -78,7 +78,7 @@ class SourceItem(BaseModel):
 class SessionCreate(BaseModel):
     topic: str = Field(..., min_length=2, max_length=200, description="想学习的知识点")
     level: Level = "basic"
-    question_count: int = Field(default=5, ge=3, le=10)
+    question_count: int = Field(default=5, ge=3, le=15)
     types: Optional[List[QuestionType]] = None
     kind: Literal["standard", "daily"] = "standard"
 
@@ -169,6 +169,7 @@ class HealthResponse(BaseModel):
     mode: str
     model: str
     web_search: bool
+    search_provider: str = "none"
     database: str = "mysql"
     auth: str = "wechat"
     wechat_login: bool = False
@@ -274,10 +275,6 @@ class UserPublic(BaseModel):
     is_guest: bool = False
 
 
-class UserSettings(BaseModel):
-    reminder_enabled: bool = False
-
-
 class ProfilePayload(BaseModel):
     client_id: str
     user_id: Optional[str] = None
@@ -294,7 +291,6 @@ class ProfilePayload(BaseModel):
     streak_days: int = 0
     rank: RankInfo
     quota: QuotaInfo
-    settings: UserSettings = Field(default_factory=UserSettings)
     weekly: List[WeeklyPoint] = Field(default_factory=list)
     recent_chapters: List[ChapterSummary] = Field(default_factory=list)
 
@@ -314,6 +310,7 @@ class AuthResponse(BaseModel):
     expires_at: str
     user: UserPublic
     migrated: Dict[str, int] = Field(default_factory=dict)
+    is_new: bool = False
 
 
 class MeResponse(BaseModel):
@@ -334,10 +331,6 @@ class ProfileUpdate(BaseModel):
         if not cleaned:
             raise ValueError("昵称不能为空")
         return cleaned
-
-
-class SettingsUpdate(BaseModel):
-    reminder_enabled: bool = False
 
 
 class RecordItem(BaseModel):

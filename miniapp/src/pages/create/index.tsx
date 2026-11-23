@@ -19,7 +19,7 @@ const EXAMPLES = [
   '唐诗格律里的平仄'
 ]
 
-const COUNTS = [3, 5, 8]
+const COUNTS = [3, 5, 10, 15]
 
 export default function CreatePage() {
   const router = useRouter()
@@ -181,7 +181,7 @@ export default function CreatePage() {
 
         <View className='trust-note create-trust'>
           <Icon name='clock-ink3' size={16} />
-          <Text>预计 20–40 秒 · 会标注来源 · 生成后可先预览再开始</Text>
+          <Text>预计 20–60 秒 · 会标注来源 · 生成后可先预览再开始</Text>
         </View>
 
         <View className='create-bottom-space' />

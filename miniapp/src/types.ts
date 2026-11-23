@@ -196,10 +196,6 @@ export interface QuotaInfo {
   is_guest: boolean
 }
 
-export interface UserSettings {
-  reminder_enabled: boolean
-}
-
 export interface User {
   id: string
   nickname: string
@@ -213,6 +209,7 @@ export interface AuthResponse {
   expires_at: string
   user: User
   migrated: { sessions?: number; chapters?: number }
+  is_new?: boolean
 }
 
 export interface MeResponse {
@@ -236,7 +233,6 @@ export interface Profile {
   streak_days: number
   rank: RankInfo
   quota: QuotaInfo
-  settings: UserSettings
   weekly: Array<{ date: string; exp: number }>
   recent_chapters: ChapterSummary[]
 }

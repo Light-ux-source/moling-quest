@@ -1,8 +1,15 @@
 import json
 
+from app.config import Settings
 from app.llm import extract_json
 from app.services.question_gen import normalize_question, validate_questions
 from app.utils import letters, overlap_ratio
+
+
+def test_required_defaults_for_model_and_limits():
+    assert Settings.model_fields["deepseek_model"].default == "deepseek-v4.1-flash-1017"
+    assert Settings.model_fields["max_question_count"].default == 15
+    assert Settings.model_fields["account_delete_cooldown_hours"].default == 24
 
 
 def test_letters_variants():

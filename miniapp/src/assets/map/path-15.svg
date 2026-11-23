@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 335 470" preserveAspectRatio="none">
+  <path d="M67.0 413.6 C83.8 413.6 134.0 413.6 167.5 413.6 C201.0 413.6 251.2 426.9 268.0 413.6 C284.8 400.3 284.8 347.0 268.0 333.7 C251.2 320.4 201.0 333.7 167.5 333.7 C134.0 333.7 83.8 347.0 67.0 333.7 C50.2 320.4 50.2 267.1 67.0 253.8 C83.8 240.5 134.0 253.8 167.5 253.8 C201.0 253.8 251.2 267.1 268.0 253.8 C284.8 240.5 284.8 187.2 268.0 173.9 C251.2 160.6 201.0 173.9 167.5 173.9 C134.0 173.9 83.8 187.2 67.0 173.9 C50.2 160.6 50.2 107.3 67.0 94.0 C83.8 80.7 134.0 94.0 167.5 94.0 C201.0 94.0 268.0 103.4 268.0 94.0 C268.0 84.6 184.2 47.0 167.5 37.6" stroke="#3e6650" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.42"/>
+  <path d="M20 430c26-22 40-56 64-72" stroke="#9dbfb0" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.35"/>
+  <circle cx="292" cy="118" r="26" fill="#e0a23c" opacity="0.12"/>
+  <circle cx="48" cy="196" r="34" fill="#3e6650" opacity="0.08"/>
+  <path d="M270 400c10-18 16-30 14-46" stroke="#3e6650" stroke-width="2" fill="none" opacity="0.25"/>
+  <path d="M300 392c12-14 14-28 10-40" stroke="#3e6650" stroke-width="2" fill="none" opacity="0.2"/>
+</svg>

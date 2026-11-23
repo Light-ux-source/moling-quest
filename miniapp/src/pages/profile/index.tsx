@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Image, Switch, Text, View } from '@tarojs/components'
+import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
 import Mascot from '../../components/Mascot'
@@ -7,7 +7,7 @@ import Icon from '../../components/Icon'
 import ErrorCard from '../../components/ErrorCard'
 import LoginSheet from '../../components/LoginSheet'
 import { useSafeArea } from '../../hooks/useSafeArea'
-import { getProfile, resolveMediaUrl, updateSettings } from '../../services/api'
+import { getProfile, resolveMediaUrl } from '../../services/api'
 import { IS_WEAPP } from '../../config'
 import type { Profile } from '../../types'
 import './index.css'
@@ -18,7 +18,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [loginOpen, setLoginOpen] = useState(false)
-  const [savingReminder, setSavingReminder] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -54,26 +53,6 @@ export default function ProfilePage() {
 
   const openAbout = () => {
     Taro.navigateTo({ url: '/pages/about/index?type=about' })
-  }
-
-  const toggleReminder = async (value: boolean) => {
-    if (!profile?.is_logged_in) {
-      openLogin()
-      return
-    }
-    if (savingReminder) return
-    setSavingReminder(true)
-    const previous = profile
-    setProfile({ ...profile, settings: { reminder_enabled: value } })
-    try {
-      await updateSettings({ reminder_enabled: value })
-      Taro.showToast({ title: value ? '已记录提醒偏好' : '已关闭提醒', icon: 'none' })
-    } catch (err) {
-      setProfile(previous)
-      Taro.showToast({ title: (err as Error).message || '保存失败', icon: 'none' })
-    } finally {
-      setSavingReminder(false)
-    }
   }
 
   const handleQuotaAction = () => {
@@ -215,21 +194,6 @@ export default function ProfilePage() {
             </View>
             <Text className='profile-menu-label'>成就与段位</Text>
             <Text className='profile-menu-soon'>即将开放</Text>
-          </View>
-          <View className='profile-menu-row'>
-            <View className='profile-menu-icon'>
-              <Icon name='clock-ink3' size={18} />
-            </View>
-            <View className='grow'>
-              <Text className='profile-menu-label'>学习提醒</Text>
-              <Text className='profile-menu-sub'>仅记录偏好，推送后续开放</Text>
-            </View>
-            <Switch
-              checked={!!profile?.settings?.reminder_enabled}
-              color='#3E6650'
-              disabled={savingReminder}
-              onChange={(e) => toggleReminder(e.detail.value)}
-            />
           </View>
           <View className='profile-menu-row' onClick={openAbout}>
             <View className='profile-menu-icon'>

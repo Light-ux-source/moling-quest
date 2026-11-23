@@ -210,7 +210,27 @@ NODE_LAYOUTS = {
     5: [(24, 83), (63, 70), (38, 55), (71, 40), (32, 26)],
     8: [(24, 86), (58, 78), (70, 68), (40, 58), (26, 48), (62, 38), (72, 28), (36, 18)],
 }
+
+
+def _grid_layout(count: int) -> list[tuple[float, float]]:
+    """9～15 题（以及 4/6/7）的紧凑布局：3 列、自下而上蛇形。"""
+    rows = max(1, math.ceil(count / 3))
+    step = 68 / max(1, rows - 1)
+    positions: list[tuple[float, float]] = []
+    for row in range(rows):
+        y = 88 - row * step
+        xs = [20, 50, 80] if row % 2 == 0 else [80, 50, 20]
+        need = min(3, count - row * 3)
+        positions.extend((x, y) for x in xs[:need])
+    return positions
+
+
+for _count in (4, 6, 7, 9, 10, 11, 12, 13, 14, 15):
+    NODE_LAYOUTS[_count] = _grid_layout(_count)
+
 FINAL_POSITION = {3: (66, 14), 5: (66, 12), 8: (66, 8)}
+for _count in (4, 6, 7, 9, 10, 11, 12, 13, 14, 15):
+    FINAL_POSITION[_count] = (50, 8)
 
 
 def catmull_rom(points: list[tuple[float, float]]) -> str:
@@ -248,7 +268,7 @@ def map_svg(count: int) -> str:
 """
 
 
-for count in (3, 5, 8):
+for count in sorted(NODE_LAYOUTS):
     write(MAP / f"path-{count}.svg", map_svg(count))
 
 # 布局坐标常量也生成一份，保证 TS 与 SVG 同源

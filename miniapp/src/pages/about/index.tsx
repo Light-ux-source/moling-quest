@@ -24,11 +24,11 @@ const PRIVACY_SECTIONS = [
   },
   {
     title: '保留多久',
-    body: '登录用户的学习记录在账号存续期内保留；游客记录建议保留 30 天；额度与安全日志至少保留 90 天。注销账号后，昵称、头像、微信绑定等个人信息会被删除，学习记录会匿名化保留用于统计。'
+    body: '登录用户的学习记录在账号存续期内保留；游客记录建议保留 30 天；额度与安全日志至少保留 90 天。注销账号后，昵称、头像、微信绑定等个人信息会被删除，学习记录会匿名化保留用于统计；为阻止注销后立即重复注册刷额度，会保留不可逆身份哈希 24 小时，到期后清除。'
   },
   {
     title: '你的权利',
-    body: '你可以在「设置」中修改昵称/头像、退出登录、清除本地缓存或注销账号；也可以联系我们请求查询、更正或删除个人信息。注销后账号不可恢复。'
+    body: '你可以在「设置」中修改昵称/头像、退出登录、清除本地缓存或注销账号；也可以联系我们请求查询、更正或删除个人信息。注销后账号不可恢复，24 小时内同一微信不能重新注册。'
   },
   {
     title: '未成年人',
@@ -126,7 +126,7 @@ export default function AboutPage() {
           <>
             <View className='about-doc-head'>
               <Text className='about-doc-title'>{TITLES[type]}</Text>
-              <Text className='about-doc-date'>更新日期：2026-11-10</Text>
+              <Text className='about-doc-date'>更新日期：2026-11-11</Text>
             </View>
             {sections.map((section) => (
               <View key={section.title} className='about-doc-section'>

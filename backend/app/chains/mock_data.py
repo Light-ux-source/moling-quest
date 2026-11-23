@@ -52,6 +52,7 @@ def build_digest(ctx: Dict[str, Any]) -> Dict[str, Any]:
 def build_generate(ctx: Dict[str, Any]) -> Dict[str, Any]:
     topic = _topic(ctx)
     count = int(ctx.get("count") or 5)
+    seq_offset = int(ctx.get("seq_offset") or 0)
     types: List[str] = list(ctx.get("types") or DEFAULT_TYPES)
     if not types:
         types = list(DEFAULT_TYPES)
@@ -60,7 +61,7 @@ def build_generate(ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     for i in range(count):
         qtype = types[i % len(types)]
-        seq = i + 1
+        seq = seq_offset + i + 1
         title = TITLES[(i) % len(TITLES)]
         base = {
             "type": qtype,
@@ -95,7 +96,7 @@ def build_generate(ctx: Dict[str, Any]) -> Dict[str, Any]:
             questions.append(
                 {
                     **base,
-                    "stem": f"以下哪些属于「{topic}」的关键要素？（多选 · 模拟）",
+                    "stem": f"以下哪些属于「{topic}」的关键要素？（第 {seq} 题 · 多选 · 模拟）",
                     "options": [
                         {"key": "A", "text": "核心概念"},
                         {"key": "B", "text": "适用条件"},
@@ -111,7 +112,7 @@ def build_generate(ctx: Dict[str, Any]) -> Dict[str, Any]:
             questions.append(
                 {
                     **base,
-                    "stem": f"请用 2～3 句话说明「{topic}」的核心机制，并举一个适用场景。（模拟）",
+                    "stem": f"请用 2～3 句话说明「{topic}」的核心机制，并举一个适用场景。（第 {seq} 题 · 模拟）",
                     "options": [],
                     "correct_answer": [
                         f"说明 {topic} 的定义与作用",

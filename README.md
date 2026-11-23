@@ -17,9 +17,9 @@
 | --- | --- |
 | 核心链路 | ✅ 输入 → 检索 → 出题 → 答题 → 结算 → 报告 |
 | 小程序端 | ✅ **S01–S08 + S11 个人中心/记录/设置/登录已落地** |
-| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/账号/配额/个人中心，pytest **73 passed** |
+| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/账号/配额/个人中心/Tavily 联网检索，pytest **86 passed** |
 | AI 编排 | ✅ LangChain 0.3.x（LCEL + ChatDeepSeek），Mock/真实同构 |
-| 真实模型 | ✅ 已用阿里云 MaaS OpenAI 兼容网关跑通 1 组真实 E2E（`deepseek-v4.1-flash-1017`）；该网关无 DeepSeek 官方 Search API，当前关闭联网检索 |
+| 真实模型 | ✅ 阿里云 MaaS OpenAI 兼容网关（`deepseek-v4.1-flash-1017`）+ **Tavily Search API** 已跑通真实 E2E：3 题 ready、6 条真实来源、逐题 `source_refs` 非空；来源注入出题 Prompt 并在预览/报告展示 |
 | 账号与数据 | ✅ 微信登录/体验登录、游客 1 组试用、3 组/日、昵称头像、积分、学习记录、注销；**MySQL 8+/9** |
 | 微信配置 | ✅ AppID/AppSecret 已填写并加载，`/health.wechat_login=true`；真实 `wx.login` code 待真机走查 |
 | 上线合规 | ⏳ S09–S13、真实 wx.login/真机、内容审核、备案待做 |
@@ -72,11 +72,15 @@ cp .env.example .env            # 填 MYSQL_* / WECHAT_*；可留空 AI key 走 
 DEEPSEEK_API_KEY=sk-xxxxxxxx
 LLM_PROVIDER=deepseek
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-flash
+DEEPSEEK_MODEL=deepseek-v4.1-flash-1017
 ENABLE_WEB_SEARCH=true
+SEARCH_PROVIDER=tavily
+TAVILY_API_KEY=tvly-xxxxxxxx
 ```
 
-> 如果使用第三方 OpenAI 兼容网关（如阿里云 MaaS），Base URL 通常要写到 `/compatible-mode/v1`，模型名用网关提供的 ID（例如 `deepseek-v4.1-flash-1017`）；这类网关通常没有 DeepSeek 官方 Search API，请设 `ENABLE_WEB_SEARCH=false`。当前本地 `.env` 即此配置，真实 E2E 已通过。
+> 如果使用第三方 OpenAI 兼容网关（如阿里云 MaaS），Base URL 通常要写到 `/compatible-mode/v1`，模型名用网关提供的 ID（例如 `deepseek-v4.1-flash-1017`）；这类网关通常没有 DeepSeek 官方 Search API，联网检索由 **Tavily** 提供，与 Chat 网关解耦。Tavily Key 只放后端 `.env`，不要写进小程序。
+>
+> 没有 Tavily Key 时，可显式设 `SEARCH_PROVIDER=tavily` + `TAVILY_ALLOW_KEYLESS=true` 使用免费的 keyless 模式（限流，适合本地演示）；生产建议配置正式 Key。`SEARCH_PROVIDER=auto` 只在配置了 Tavily Key 时自动启用 Tavily，避免无 Key 环境偷偷联网。
 
 ### 2. 启动小程序端
 
@@ -131,8 +135,9 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | 查报错 | [15-故障排查与FAQ](docs/15-故障排查与FAQ.md) |
 | 找术语/文件 | [17-术语表与索引](docs/17-术语表与索引.md) |
 | 看最终运行状态 | [20-最终交付与运行状态](docs/20-最终交付与运行状态.md) |
+| 改/排查联网搜索 | [21-联网搜索实现与验收](docs/21-联网搜索实现与验收.md) |
 
-完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [用户系统需求](docs/18-用户系统需求分析.md) · [用户系统实现](docs/19-用户系统实现与验收.md) · [最终运行状态](docs/20-最终交付与运行状态.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
+完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [用户系统需求](docs/18-用户系统需求分析.md) · [用户系统实现](docs/19-用户系统实现与验收.md) · [最终运行状态](docs/20-最终交付与运行状态.md) · [联网搜索](docs/21-联网搜索实现与验收.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
 
 ## 技术栈
 
@@ -140,9 +145,9 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | --- | --- |
 | 小程序端 | Taro 4.3.2 + React 18 + TypeScript（官方脚手架） |
 | 后端 | Python 3.9+ / FastAPI + Uvicorn |
-| AI | DeepSeek `deepseek-flash`（JSON Output，默认关闭思考） |
+| AI | DeepSeek `deepseek-v4.1-flash-1017`（JSON Output，默认关闭思考；15 题分批生成） |
 | Prompt 编排 | LangChain 0.3.x（`ChatPromptTemplate` + LCEL + `ChatDeepSeek`） |
-| 检索 | DeepSeek Search API（`/v1/tools/search`，rerank≥1.5） |
+| 检索 | Tavily Search API（`POST /search`，`search_depth=basic`，6 条结果）；保留 DeepSeek 官方 Search 适配 |
 | 存储 | **MySQL 8+/9**（PyMySQL，utf8mb4），仓储层隔离 |
 | 测试 | pytest + Playwright（H5 E2E / 截图） |
 
@@ -154,7 +159,7 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 # 环境变量模板校验（确保无真实密钥、必需项齐全）
 python3 scripts/check_env_example.py
 
-# 后端单测 + 接口测试（73 个用例，Mock 模式；含微信 code2Session 请求形状测试）
+# 后端单测 + 接口测试（86 个用例，Mock 模式；含微信 code2Session 请求形状、注销冷却、15 题上限与 Tavily 检索测试）
 cd backend && .venv/bin/python -m pytest -q
 
 # 前端类型检查与构建
@@ -169,9 +174,9 @@ node scripts/e2e.js
 node scripts/screenshot.js
 ```
 
-当前基线：**73 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（含游客→体验登录→个人中心→记录→造关→答题→结算→报告；0 错误、0 4xx、375/390/768 无横向溢出）**。
+当前基线：**86 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（含游客→体验登录→个人中心→记录→造关→答题→结算→报告；0 错误、0 4xx、375/390/768 无横向溢出）**。
 
-真实模型单组实测（2026-11-09，阿里云 MaaS `deepseek-v4.1-flash-1017`）：tokens 约 2.9k in / 2.1k out（实测 2871/2072、2996/2176），估算成本 **¥0.022–0.023**；从创建到完成 15–20s（含作答），批改/报告约 3s。该网关无 Search API，`web_search=false`，来源为空。
+真实模型单组实测（2026-11-09，阿里云 MaaS `deepseek-v4.1-flash-1017`）：tokens 约 2.9k in / 2.1k out（实测 2871/2072、2996/2176），估算成本 **¥0.022–0.023**；从创建到完成 15–20s（含作答），批改/报告约 3s。15 题实测：按 5 题一批共 3 批，34–38 秒生成满 15 题。联网检索由 Tavily 提供（2026-11 核实：`POST https://api.tavily.com/search`，Bearer 鉴权，`results[].content` 作为摘要注入 digest），会额外增加约 1 次搜索请求与少量 Prompt token。
 
 ## 目录结构
 
@@ -202,7 +207,7 @@ shots/              S01–S08 验收截图
 - S07 生成中：三步真实进度、慢等待提示、失败重试、稍后回来
 - S08 预览：章节卡、题目列表、来源、重新生成、开始闯关
 - 后端：章节/进度/结算/日挑战/章末综合/失败重试/个人统计
-- **用户系统**：微信一键登录（首次自动注册）/体验登录、登录态与退出、游客 1 组试用、登录 3 组/日、游客数据迁移、昵称头像、积分、学习记录列表、设置/隐私/注销
+- **用户系统**：微信一键登录（首次自动注册）/体验登录、登录态与退出、游客 1 组试用、登录 3 组/日、游客数据迁移、头像昵称填写、积分、学习记录列表、设置/隐私/注销（24h 冷却）
 - **MySQL 8+/9**（PyMySQL）；`users/auth_tokens/user_settings/guest_trials` 等表；越权访问 404
 - LangChain 0.3.x 编排四条 Prompt 链；JSON mode、思考开关、空 content 重试
 - Mock/真实双模式、客户端隔离、限流、账号隔离
@@ -210,7 +215,7 @@ shots/              S01–S08 验收截图
 ## 尚未实现
 
 - S09 错题本、S10 成就、S12 分享、S13 排行榜（P1/P2）
-- 真实 `wx.login` code / 微信真机登录走查（AppID/AppSecret 已配置）
+- 真实 `wx.login` code / 微信真机登录与头像昵称填写走查（代码已实现，AppID/AppSecret 已配置）
 - `msgSecCheck` 内容审核、备案、小程序码、多轮追问、指定信息源
 
 ## 注意

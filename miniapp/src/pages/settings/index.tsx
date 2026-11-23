@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Button, Image, Input, Switch, Text, View } from '@tarojs/components'
+import { Button, Image, Input, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
 import PageHeader from '../../components/PageHeader'
@@ -13,7 +13,6 @@ import {
   getProfile,
   resolveMediaUrl,
   updateProfile,
-  updateSettings,
   uploadAvatar
 } from '../../services/api'
 import { signOut } from '../../services/auth'
@@ -98,21 +97,6 @@ export default function SettingsPage() {
     }
   }
 
-  const toggleReminder = async (value: boolean) => {
-    if (!profile?.is_logged_in) {
-      openLogin()
-      return
-    }
-    const previous = profile
-    setProfile({ ...profile, settings: { reminder_enabled: value } })
-    try {
-      await updateSettings({ reminder_enabled: value })
-    } catch (err) {
-      setProfile(previous)
-      Taro.showToast({ title: (err as Error).message || '保存失败', icon: 'none' })
-    }
-  }
-
   const clearCache = async () => {
     const res = await Taro.showModal({
       title: '清除本地缓存',
@@ -144,14 +128,14 @@ export default function SettingsPage() {
   const handleDelete = async () => {
     const first = await Taro.showModal({
       title: '注销账号',
-      content: '注销后账号不可恢复，昵称/头像等个人信息会被删除，学习记录将匿名化保留统计。确定继续吗？',
+      content: '注销后账号不可恢复，昵称/头像等个人信息会被删除，学习记录将匿名化保留统计；24 小时内同一微信不能重新注册。确定继续吗？',
       confirmText: '继续',
       confirmColor: '#BF5B42'
     })
     if (!first.confirm) return
     const second = await Taro.showModal({
       title: '最后确认',
-      content: '确定要注销当前账号吗？此操作不可撤销。',
+      content: '确定要注销当前账号吗？注销后 24 小时内无法用同一微信重新注册，此操作不可撤销。',
       confirmText: '注销',
       confirmColor: '#BF5B42'
     })
@@ -266,19 +250,8 @@ export default function SettingsPage() {
         </View>
 
         <View className='settings-section'>
-          <Text className='settings-section-title'>偏好</Text>
+          <Text className='settings-section-title'>隐私与协议</Text>
           <View className='settings-card'>
-            <View className='settings-row'>
-              <View className='grow'>
-                <Text className='settings-row-label'>学习提醒</Text>
-                <Text className='settings-row-sub'>本期仅记录偏好，推送能力后续开放</Text>
-              </View>
-              <Switch
-                checked={!!profile?.settings?.reminder_enabled}
-                color='#3E6650'
-                onChange={(e) => toggleReminder(e.detail.value)}
-              />
-            </View>
             <View className='settings-row' onClick={() => openPage('privacy')}>
               <Text className='settings-row-label'>隐私政策</Text>
               <Text className='settings-row-arrow'>›</Text>

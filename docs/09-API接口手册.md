@@ -86,10 +86,8 @@
 | 17 | POST | `/auth/logout` | 撤销当前 token | 200 |
 | 18 | PATCH | `/profile` | 修改昵称/头像 | 200 |
 | 19 | POST | `/profile/avatar` | 上传头像 | 200 |
-| 20 | GET | `/profile/settings` | 读取提醒偏好 | 200 |
-| 21 | PATCH | `/profile/settings` | 更新提醒偏好 | 200 |
-| 22 | DELETE | `/profile` | 注销账号 | 204 |
-| 23 | GET | `/records` | 学习记录列表（仅列表） | 200 |
+| 20 | DELETE | `/profile` | 注销账号（24h 冷却） | 204 |
+| 21 | GET | `/records` | 学习记录列表（仅列表） | 200 |
 
 ---
 
@@ -106,6 +104,7 @@
   "mode": "mock",
   "model": "mock-deepseek-flash",
   "web_search": false,
+  "search_provider": "none",
   "database": "mysql",
   "auth": "wechat",
   "wechat_login": false,
@@ -117,7 +116,8 @@
 | --- | --- |
 | `mode` | `mock` / `deepseek` |
 | `model` | Mock 为 `mock-deepseek-flash`；真实为配置的模型 ID（当前网关注入 `deepseek-v4.1-flash-1017`） |
-| `web_search` | 真实模式且开启检索时为 `true` |
+| `web_search` | 真实模式且实际可用检索源时为 `true`（配置了 Tavily Key，或显式 `SEARCH_PROVIDER=tavily` + keyless） |
+| `search_provider` | 实际解析出的检索源：`tavily` / `deepseek` / `none`；Mock 模式为 `none` |
 | `database` | 固定 `mysql` |
 | `auth` | 固定 `wechat`；`wechat_login` 表示 AppID+Secret 是否齐全（当前本地已填写并加载，返回 `true`） |
 | `dev_login` | 非生产且 `DEV_LOGIN_ENABLED=true` 时为 `true` |
@@ -144,7 +144,7 @@
 | --- | --- | --- | --- |
 | `topic` | string | 是 | 2–200 字；空白会被折叠 |
 | `level` | enum | 否 | `basic` / `advanced` / `challenge`，默认 `basic` |
-| `question_count` | int | 否 | 3–10，默认 5 |
+| `question_count` | int | 否 | 3–15，默认 5；真实模式 15 题分批生成 |
 | `types` | string[] | 否 | 四种题型；至少一种；缺省全部 |
 | `kind` | enum | 否 | `standard` / `daily`；`daily` 强制 3 题、全题型 |
 
@@ -214,7 +214,7 @@
     { "title": "HTTP caching - MDN", "url": "https://...", "site_name": "MDN", "summary": "..." }
   ],
   "answered_count": 0,
-  "model": "deepseek-flash"
+  "model": "deepseek-v4.1-flash-1017"
 }
 ```
 
@@ -329,7 +329,7 @@
   "sources": [{ "title": "HTTP caching - MDN", "url": "https://...", "site_name": "MDN", "summary": "..." }],
   "duration_sec": 63,
   "generated_at": "2026-11-09T11:32:10+00:00",
-  "model": "deepseek-flash",
+  "model": "deepseek-v4.1-flash-1017",
   "usage": {
     "tokens_in": 9321,
     "tokens_out": 2874,
@@ -503,7 +503,7 @@
 }
 ```
 
-**节点状态**：`done` / `current` / `locked` / `unlocked`；章末综合需前 5 关均 3 星。
+**节点状态**：`done` / `current` / `locked` / `unlocked`；章末综合需全部关卡均 3 星。
 
 **错误**：404。注意：该接口**不按 client 过滤**，`chapter_id` 即凭证。
 
@@ -513,7 +513,7 @@
 
 生成章末综合（3 题，kind=comprehensive）。
 
-**前置**：章节 kind=standard；原 session completed；前 5 关均 3 星；未生成过综合。
+**前置**：章节 kind=standard；原 session completed；全部关卡均 3 星；未生成过综合。
 
 **响应 202（SessionDetail，kind=comprehensive，parent_chapter_id=原章节）**
 
@@ -523,7 +523,7 @@
 
 ### 3.12 `GET /api/v1/profile`
 
-按登录用户（Bearer）或游客设备（`X-Client-Id`）返回个人统计。**v0.3.0 起新增 `user_id/avatar_url/is_guest/is_logged_in/wechat_bound/points/settings/quota`**，完整字段与游客/登录口径见第 7.5 节。
+按登录用户（Bearer）或游客设备（`X-Client-Id`）返回个人统计。**v0.3.0 起新增 `user_id/avatar_url/is_guest/is_logged_in/wechat_bound/points/quota`**，完整字段与游客/登录口径见第 7.5 节。
 
 **口径**：
 - `chapters_completed`：该账号/设备已完成的 session 数（含 daily/comprehensive）。
@@ -639,7 +639,8 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
 
 - 当前 `app_version=0.2.0`；接口前缀 `/api/v1`。新增字段保持向后兼容（客户端忽略未知字段）。
 - 破坏性变更需新增 `/api/v2` 或至少同步 [09] / [05] / [11]。
-- 2026-11-09 实测：45 pytest、H5 E2E、双端构建通过；Mock 与真实模型（阿里云 MaaS 网关）各跑通一次。真实模式 `/health` 返回 `mode=deepseek`、`model=deepseek-v4.1-flash-1017`、`web_search=false`（该网关无 DeepSeek Search API）。
+- 2026-11-09 实测：45 pytest、H5 E2E、双端构建通过；Mock 与真实模型（阿里云 MaaS 网关）各跑通一次。
+- 2026-11-20 新增 Tavily 检索：真实模式 `/health` 返回 `mode=deepseek`、`model=deepseek-v4.1-flash-1017`、`search_provider=tavily`、`web_search=true`（当前本地配置，正式 Tavily Key 待填）。
 
 ---
 
@@ -664,12 +665,14 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
     "wechat_bound": true,
     "is_guest": false
   },
-  "migrated": { "sessions": 2, "chapters": 2 }
+  "migrated": { "sessions": 2, "chapters": 2 },
+  "is_new": true
 }
 ```
 
-- 首次 openid 自动建号；同一 openid 再登录同一账号。
+- 首次 openid 自动建号；同一 openid 再登录同一账号；`is_new=true` 时客户端引导完善头像昵称。
 - 未配置 `WECHAT_APP_SECRET` 时返回 **503**；code 无效/已使用返回 400；频繁返回 429。
+- 刚注销的同一微信在 24h 冷却期内重新登录返回 **403**。
 - 服务端调用官方 `GET https://api.weixin.qq.com/sns/jscode2session?appid=...&secret=...&js_code=...&grant_type=authorization_code`。
 
 ### 7.2 `POST /api/v1/auth/dev`
@@ -679,6 +682,7 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
 ```
 
 - 仅 `ENV != production` 且 `DEV_LOGIN_ENABLED=true`；生产返回 403。
+- 同样受注销后 24h 冷却限制；响应含 `is_new`。
 - 同一 `X-Client-Id` 的体验账号稳定；用于 H5/E2E。
 
 ### 7.3 `GET /api/v1/auth/me`
@@ -711,8 +715,7 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
     "source": "daily",
     "reset_at": "2026-11-10T16:00:00+00:00",
     "is_guest": false
-  },
-  "settings": { "reminder_enabled": false }
+  }
 }
 ```
 
@@ -740,18 +743,11 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
 - 静态访问：`GET /media/avatars/<filename>`。
 - 生产建议接对象存储 + CDN；当前为本地目录。
 
-### 7.8 `GET/PATCH /api/v1/profile/settings`
-
-```json
-{ "reminder_enabled": true }
-```
-
-本期只保存偏好，不发送订阅消息；需要登录。
-
-### 7.9 `DELETE /api/v1/profile`
+### 7.8 `DELETE /api/v1/profile`
 
 - 204；撤销全部 token；昵称/头像/openid 删除；学习记录匿名化（`user_id=NULL`、`client_id=deleted_<id>`）。
-- 注销后不可恢复；重新微信登录视为新账号。
+- 注销后保留不可逆身份哈希；24 小时内同一微信重新注册返回 `403`，提示冷却时间。
+- 冷却期满后重新微信登录视为新账号，旧学习记录不可见。
 
 ### 7.10 `GET /api/v1/records?limit=20&offset=0`
 

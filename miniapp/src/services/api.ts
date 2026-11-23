@@ -12,8 +12,7 @@ import type {
   Report,
   SessionDetail,
   Settlement,
-  User,
-  UserSettings
+  User
 } from '../types'
 
 export class ApiError extends Error {
@@ -233,6 +232,7 @@ export function health(): Promise<{
   mode: string
   model: string
   web_search: boolean
+  search_provider?: string
   database?: string
   auth?: string
   wechat_login?: boolean
@@ -449,14 +449,6 @@ export function uploadAvatar(filePath: string): Promise<{ avatar_url: string }> 
 
 export function getRecords(limit = 20, offset = 0): Promise<RecordList> {
   return request<RecordList>(`/api/v1/records?limit=${limit}&offset=${offset}`)
-}
-
-export function getSettings(): Promise<UserSettings> {
-  return request<UserSettings>('/api/v1/profile/settings')
-}
-
-export function updateSettings(payload: UserSettings): Promise<UserSettings> {
-  return request<UserSettings>('/api/v1/profile/settings', { method: 'PATCH', data: payload })
 }
 
 export function deleteAccount(): Promise<void> {

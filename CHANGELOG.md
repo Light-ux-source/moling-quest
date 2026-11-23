@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 新增
+- **联网搜索（Tavily）**：出题前调用 Tavily Search API（`POST /search`），将 `results[].content` 作为「联网检索资料」注入 digest Prompt，并继续走现有来源白名单/预览/报告链路；检索失败或空结果自动降级为纯模型知识
+- 新增 `SEARCH_PROVIDER=auto|tavily|deepseek|none`；`auto` 有 `TAVILY_API_KEY` 时用 Tavily，否则按官方 DeepSeek Search 适配回退；显式 `SEARCH_PROVIDER=tavily` 无 Key 时可用 keyless（限流，生产建议正式 Key）
+- `/api/v1/health` 新增 `search_provider`，`web_search` 改为按实际可用检索源计算
+- 测试：新增 Tavily 请求形状/解析/去重/HTTP 降级/provider 选择/摘要注入与 source_refs 白名单用例（**86 passed**）
+- 真实联调：Tavily 正式 Key + 阿里云 MaaS `deepseek-v4.1-flash-1017`，3 题 ready、6 条真实来源、报告逐题 `source_refs` 非空
+- 文档：[21-联网搜索实现与验收](docs/21-联网搜索实现与验收.md)；同步更新 00/05/07/09/12/13/14/16/20 与 README
+
 ### 修复
 - **额度误扣与用尽后死循环**：预览页“重新生成”改走 `POST /sessions/{id}/regenerate`，复用原会话/章节、不额外扣额度；登录用户额度用尽统一弹“今日额度已用完 + 回首页”，游客 429 打开登录弹层；登录弹层增加“先回首页看看”兜底
 - **页面栈溢出**：结算页返回不再强制压入章节地图；report/map 跳转优先复用栈内页面，`PageHeader` 无上一页时回首页；连续“再练一组/下一关”不再因微信 10 层上限卡死
@@ -11,6 +19,18 @@
 - **微信开发者工具 WXSS 编译失败**：移除 `tokens.css` 中 WXSS 不支持的通配选择器 `*` 及其 `::before/::after`，改为显式基础组件选择器；纸纹层改用 `z-index:-1`，避免覆盖页面 fixed 底栏
 - H5 端全局 `border-box` 移至 `src/index.html`，保持两端盒模型一致
 - 微信模拟器全链路走查通过（首页 → 造关 → 生成 → 预览 → 答题 → 结算 → 报告）
+
+### 变更
+- **注销防刷**：注销后保留不可逆身份哈希并设置 24 小时冷却；冷却期内同一微信/体验身份重新注册返回 403，避免“注销→重注册”重置每日额度
+- **题量上限 15**：前端提供 3/5/10/15，后端上限与 Pydantic 校验同步为 15；真实网关单次输出约 4k tokens，15 题改为每批 5 题生成后合并去重，实测 34–38 秒完成
+- **地图与答题适配**：生成 3–15 题的章节地图布局与路径；10/15 题使用紧凑节点与标签；答题页圆点导航在 >10 题时收紧
+- **自动下一题**：仅单选题显示题干上方右侧小胶囊；开启后选中约 300ms 自动跳下一题；最后一题不自动提交；偏好本地持久化
+- **微信头像昵称**：新用户微信登录后进入完善资料步骤，使用 `chooseAvatar` + `type=nickname` 主动选择/填写，可跳过；不再依赖已调整规则的 `getUserProfile`
+- **模型统一**：默认/示例/文档统一为 `deepseek-v4.1-flash-1017`，真实模式启动时对非 v4.1-flash 模型告警
+
+### 删除
+- **学习提醒**：移除个人中心/设置入口、前端调用与后端 `/profile/settings` 接口及资料 `settings` 字段；旧 `user_settings` 表保留不 drop
+- **报告 token/费用提示**：移除报告页“本次消耗 xxx tokens · 约 ¥…”展示；保留“内容由 AI 生成，仅供学习参考”合规标识与后端成本统计
 
 ### 计划中
 - S09–S13：错题本、成就、分享、排行榜

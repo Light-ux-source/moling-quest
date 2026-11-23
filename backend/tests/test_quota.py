@@ -7,6 +7,7 @@ import pytest
 from app import db
 from app.api import routes
 from app.config import get_settings
+from app.services import auth as auth_service
 from app.services import quota
 from tests.helpers import BASE, create_ready, dev_login, headers
 
@@ -133,6 +134,59 @@ async def test_guest_trial_is_not_counted_against_daily_quota_after_login(client
     ).json()
     assert records["total"] == 1
     assert records["items"][0]["id"] == guest["id"]
+
+
+@pytest.mark.asyncio
+async def test_delete_and_reregister_cannot_reset_daily_quota(client, monkeypatch):
+    _enable(monkeypatch, guest=1, daily=3)
+
+    async def fake_exchange(code: str):
+        return {"openid": "openid_quota_delete"}
+
+    monkeypatch.setattr(auth_service, "wechat_exchange_code", fake_exchange)
+    login = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "quota_delete_code"},
+        headers=headers("quota_delete_device"),
+    )
+    assert login.status_code == 200, login.text
+    token = login.json()["token"]
+    user = login.json()["user"]
+
+    for index in range(3):
+        await create_ready(
+            client, "quota_delete_device", token, topic=f"注销前主题 {index}"
+        )
+
+    profile = (
+        await client.get(f"{BASE}/profile", headers=headers("quota_delete_device", token))
+    ).json()
+    assert profile["quota"]["used"] == 3
+    assert profile["quota"]["remaining"] == 0
+
+    deleted = await client.delete(
+        f"{BASE}/profile", headers=headers("quota_delete_device", token)
+    )
+    assert deleted.status_code == 204
+
+    # 注销后 24 小时内不能用同一微信重新注册，因此不存在“新账号 3 组”重置
+    blocked = await client.post(
+        f"{BASE}/auth/wechat",
+        json={"code": "quota_delete_code"},
+        headers=headers("quota_delete_device"),
+    )
+    assert blocked.status_code == 403, blocked.text
+    assert "24" in blocked.json()["detail"]
+
+    # 旧令牌失效；原账号仍保持注销
+    old_me = await client.get(
+        f"{BASE}/auth/me", headers=headers("quota_delete_device", token)
+    )
+    assert old_me.status_code == 401
+    with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT status FROM users WHERE id = %s", (user["id"],))
+            assert (cur.fetchone() or {}).get("status") == "deleted"
 
 
 @pytest.mark.asyncio

@@ -86,6 +86,26 @@ async def test_core_flow(client):
 
 
 @pytest.mark.asyncio
+async def test_question_count_upper_bound_is_fifteen(client):
+    created = await client.post(
+        "/api/v1/sessions",
+        json={"topic": "题量上限十五题", "level": "advanced", "question_count": 15},
+    )
+    assert created.status_code == 202, created.text
+    session_id = created.json()["id"]
+    detail = (await client.get(f"/api/v1/sessions/{session_id}")).json()
+    assert detail["status"] == "ready", detail
+    assert detail["question_count"] == 15
+    assert len(detail["questions"]) == 15
+
+    too_many = await client.post(
+        "/api/v1/sessions",
+        json={"topic": "题量超过上限", "level": "advanced", "question_count": 16},
+    )
+    assert too_many.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_validation_errors(client):
     bad = await client.post("/api/v1/sessions", json={"topic": "a", "question_count": 5})
     assert bad.status_code == 422

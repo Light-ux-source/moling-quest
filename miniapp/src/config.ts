@@ -15,12 +15,13 @@ export const STORAGE_KEYS = {
   lastChapter: 'ml_last_chapter',
   authToken: 'ml_auth_token',
   authUser: 'ml_auth_user',
-  agreedTerms: 'ml_agreed_terms'
+  agreedTerms: 'ml_agreed_terms',
+  autoNext: 'ml_auto_next'
 } as const
 
 export const POLL_INTERVAL = 1200
 export const POLL_MAX_INTERVAL = 5000
-export const POLL_TIMEOUT = 120000
+export const POLL_TIMEOUT = 180000
 
 export const IS_WEAPP = process.env.TARO_ENV === 'weapp'
 export const IS_H5 = process.env.TARO_ENV === 'h5'

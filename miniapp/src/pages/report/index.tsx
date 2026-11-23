@@ -339,10 +339,6 @@ export default function ReportPage() {
           内容由 AI 生成，仅供学习参考
           {report.model ? ` · ${report.model}` : ''}
         </View>
-        <View className='report-usage'>
-          本次消耗 {report.usage.tokens_in + report.usage.tokens_out} tokens · 约 ¥
-          {Number(report.usage.cost_cny || 0).toFixed(4)}（{report.usage.note}）
-        </View>
         <View className='report-bottom-space' />
       </View>
 

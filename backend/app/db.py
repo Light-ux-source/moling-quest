@@ -22,7 +22,6 @@ _initialized = False
 
 TABLES = [
     "auth_tokens",
-    "user_settings",
     "guest_trials",
     "reports",
     "answers",
@@ -39,6 +38,7 @@ SCHEMA = [
       openid        VARCHAR(128) NULL,
       unionid       VARCHAR(128) NULL,
       dev_key       VARCHAR(128) NULL,
+      identity_hash VARCHAR(64) NULL,
       nickname      VARCHAR(64) NOT NULL DEFAULT '旅人',
       avatar_url    VARCHAR(512) NULL,
       status        VARCHAR(20) NOT NULL DEFAULT 'active',
@@ -47,7 +47,9 @@ SCHEMA = [
       last_login_at VARCHAR(40) NULL,
       deleted_at    VARCHAR(40) NULL,
       UNIQUE KEY uniq_users_openid (openid),
-      UNIQUE KEY uniq_users_dev_key (dev_key)
+      UNIQUE KEY uniq_users_dev_key (dev_key),
+      KEY idx_users_identity (identity_hash),
+      KEY idx_users_deleted (status, deleted_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     """,
     """
@@ -61,14 +63,6 @@ SCHEMA = [
       last_used_at VARCHAR(40) NULL,
       UNIQUE KEY uniq_auth_token_hash (token_hash),
       KEY idx_auth_tokens_user (user_id, expires_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS user_settings (
-      user_id           VARCHAR(64) PRIMARY KEY,
-      reminder_enabled  TINYINT NOT NULL DEFAULT 0,
-      created_at        VARCHAR(40) NOT NULL,
-      updated_at        VARCHAR(40) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     """,
     """
@@ -244,9 +238,12 @@ def _migrate(conn: pymysql.connections.Connection) -> None:
     _ensure_column(conn, "sessions", "quota_refunded", "TINYINT NOT NULL DEFAULT 0")
     _ensure_column(conn, "chapters", "user_id", "VARCHAR(64) NULL")
     _ensure_column(conn, "questions", "origin_question_id", "VARCHAR(64) NULL")
+    _ensure_column(conn, "users", "identity_hash", "VARCHAR(64) NULL")
     _ensure_index(conn, "sessions", "idx_sessions_user", "user_id, created_at")
     _ensure_index(conn, "sessions", "idx_sessions_quota", "user_id, created_at, quota_refunded")
     _ensure_index(conn, "chapters", "idx_chapters_user", "user_id, created_at")
+    _ensure_index(conn, "users", "idx_users_identity", "identity_hash")
+    _ensure_index(conn, "users", "idx_users_deleted", "status, deleted_at")
 
 
 def init_db() -> None:
@@ -314,14 +311,15 @@ def create_user(row: Dict[str, Any]) -> None:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO users
-                   (id, openid, unionid, dev_key, nickname, avatar_url, status,
+                   (id, openid, unionid, dev_key, identity_hash, nickname, avatar_url, status,
                     created_at, updated_at, last_login_at, deleted_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)""",
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)""",
                 (
                     row["id"],
                     row.get("openid"),
                     row.get("unionid"),
                     row.get("dev_key"),
+                    row.get("identity_hash"),
                     row.get("nickname") or "旅人",
                     row.get("avatar_url"),
                     row.get("status") or "active",
@@ -356,8 +354,37 @@ def get_user_by_dev_key(dev_key: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+def get_deleted_user_by_identity(identity_hash: str) -> Optional[Dict[str, Any]]:
+    """查最近一次注销且仍保留身份哈希的账号，用于注销冷却期校验。"""
+    if not identity_hash:
+        return None
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT * FROM users
+                   WHERE identity_hash = %s AND status = 'deleted'
+                   ORDER BY deleted_at DESC LIMIT 1""",
+                (identity_hash,),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def clear_expired_deletion_hashes(cutoff_iso: str) -> int:
+    """注销冷却期结束后清除身份哈希，避免长期保留可关联标识。"""
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE users SET identity_hash = NULL, updated_at = %s
+                   WHERE status = 'deleted' AND identity_hash IS NOT NULL
+                     AND deleted_at IS NOT NULL AND deleted_at < %s""",
+                (now_iso(), cutoff_iso),
+            )
+            return int(cur.rowcount or 0)
+
+
 def update_user(user_id: str, **fields: Any) -> None:
-    allowed = {"nickname", "avatar_url", "last_login_at", "status", "openid", "unionid", "dev_key", "deleted_at"}
+    allowed = {"nickname", "avatar_url", "last_login_at", "status", "openid", "unionid", "dev_key", "identity_hash", "deleted_at"}
     payload = {k: v for k, v in fields.items() if k in allowed}
     if not payload:
         return
@@ -404,7 +431,6 @@ def anonymize_user_data(user_id: str) -> None:
                 "UPDATE chapters SET user_id = NULL, client_id = %s WHERE user_id = %s",
                 (deleted_client, user_id),
             )
-            cur.execute("DELETE FROM user_settings WHERE user_id = %s", (user_id,))
             cur.execute(
                 "UPDATE auth_tokens SET revoked_at = %s WHERE user_id = %s AND revoked_at IS NULL",
                 (now_iso(), user_id),
@@ -460,45 +486,6 @@ def revoke_user_tokens(user_id: str) -> None:
                 "UPDATE auth_tokens SET revoked_at = %s WHERE user_id = %s AND revoked_at IS NULL",
                 (now_iso(), user_id),
             )
-
-
-# --------------------------------------------------------------------------- #
-# user settings
-# --------------------------------------------------------------------------- #
-def get_user_settings(user_id: str) -> Dict[str, Any]:
-    with connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM user_settings WHERE user_id = %s", (user_id,))
-            row = cur.fetchone()
-    if not row:
-        return {"user_id": user_id, "reminder_enabled": False}
-    data = dict(row)
-    data["reminder_enabled"] = bool(data.get("reminder_enabled"))
-    return data
-
-
-def upsert_user_settings(user_id: str, **fields: Any) -> Dict[str, Any]:
-    allowed = {"reminder_enabled"}
-    payload = {k: v for k, v in fields.items() if k in allowed}
-    if not payload:
-        return get_user_settings(user_id)
-    ts = now_iso()
-    values = {
-        "user_id": user_id,
-        "reminder_enabled": 1 if payload.get("reminder_enabled") else 0,
-        "created_at": ts,
-        "updated_at": ts,
-    }
-    with connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO user_settings (user_id, reminder_enabled, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s)
-                   ON DUPLICATE KEY UPDATE reminder_enabled = VALUES(reminder_enabled),
-                                           updated_at = VALUES(updated_at)""",
-                (values["user_id"], values["reminder_enabled"], values["created_at"], values["updated_at"]),
-            )
-    return get_user_settings(user_id)
 
 
 # --------------------------------------------------------------------------- #

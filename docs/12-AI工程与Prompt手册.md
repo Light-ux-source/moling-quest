@@ -3,9 +3,9 @@
 | 项 | 内容 |
 | --- | --- |
 | 版本 | v1.0（对应后端 v0.2.0） |
-| 模型 | DeepSeek `deepseek-flash`（可选 `deepseek-v4-pro`） |
+| 模型 | DeepSeek `deepseek-v4.1-flash-1017`（当前网关；可选 `deepseek-v4-pro`） |
 | 编排 | LangChain 0.3.x：`ChatPromptTemplate` + LCEL + `ChatDeepSeek` |
-| 检索 | DeepSeek Search API（httpx 直连） |
+| 检索 | Tavily Search API（httpx 直连）；保留 DeepSeek Search 适配 |
 | 关联 | [04-ADR](./04-ADR决策记录.md) · [07-技术核实](./07-技术核实.md) · [08-架构](./08-系统架构与代码地图.md) |
 
 ---
@@ -13,8 +13,8 @@
 ## 1. 五段式 Pipeline
 
 ```
-① Search API（可失败/可跳过）
-   → sources（title/url/site_name/summary）
+① Search（Tavily / DeepSeek 官方，可失败/可跳过）
+   → sources（title/url/site_name/summary；summary 可能带发布日期）
 ② digest（LLM JSON）
    → knowledge_brief：key_points / misconceptions / prerequisites
 ③ generate（LLM JSON）
@@ -25,6 +25,8 @@
 ```
 
 **为什么拆两次 LLM**：一次“检索+出题”会让模型在长上下文里同时做事实整理与命题设计，容易顾此失彼；拆开后提纲可审阅、可缓存、可评测。
+
+> **15 题分批**：真实网关单次输出约 4k tokens，直接请求 15 题会被截断为 5–6 题。`generate_for_session` 按 `QUESTION_GENERATE_BATCH_SIZE=5` 分批生成，每批带上“已使用题干”避免重复，最后合并去重；实测 15 题 34–38 秒完成。
 
 ---
 
@@ -44,7 +46,7 @@ app/prompts.py   # ChatPromptTemplate（mustache）+ LEVEL_GUIDE / TYPE_RULES
 
 ```python
 ChatDeepSeek(
-    model="deepseek-flash",
+    model="deepseek-v4.1-flash-1017",
     api_key=...,
     api_base="https://api.deepseek.com",
     temperature=0.3,
@@ -175,18 +177,31 @@ LangChain 1.x 要求 Python ≥3.10，且与 `langchain-deepseek 0.1.4` 冲突�
 
 ## 7. 检索
 
-`app/search.py`：
+`app/search.py` 提供三种实现，`get_search()` 按 provider 选择：
+
+| provider | 实现 | 说明 |
+| --- | --- | --- |
+| `tavily` | `TavilySearchClient` | `POST /search`；Bearer 或 keyless；`search_depth=basic`；一次取 `SEARCH_COUNT` 条 |
+| `deepseek` | `SearchClient` | 官方 `/v1/tools/search`；`rerank_score >= 1.5`；保留兼容 |
+| `none` / 无可用 Key | `NoopSearchClient` | 不请求、不伪造来源 |
+| Mock 模式 | `MockSearchClient` | 返回 2 条“本地模拟”来源（URL 为空） |
+
+Tavily 关键逻辑：
 
 ```python
-build_queries(topic) -> [topic, f"{topic} 核心概念 原理 常见误区"]
-SearchClient.search_many() -> 合并两次查询、按 URL 去重、最多 search_count*2
-filter_results() -> rerank_score >= 1.5，URL 去重，长度截断
+TavilySearchClient.search_many(topic)
+  -> POST {TAVILY_BASE_URL}/search
+  -> results[].content 作为 summary（附 published_date，截断 800 字）
+  -> 按 URL 去重、丢弃空/非 http(s) URL
+  -> HTTP 错误/非 JSON/空结果返回 []，由 question_gen 降级
 ```
 
-- 官方：Search QPS 100，Fetch QPS 25；按成功请求计费 5 元/1000 次。
-- 当前 `need_content=false`，只用 `summary`；需要正文时再调 Fetch（P1）。
+- `SEARCH_PROVIDER=auto`：只有配置 `TAVILY_API_KEY` 才自动用 Tavily；否则在非 MaaS 网关上尝试 DeepSeek Search。
+- 显式 `SEARCH_PROVIDER=tavily` 且无 Key：`TAVILY_ALLOW_KEYLESS=true` 时用 keyless（免费、限流）；生产建议正式 Key。
+- `ENABLE_WEB_SEARCH=false` 时一律 `NoopSearchClient`（Mock 模式除外）。
 - 检索失败/空结果 → `sources=[]`，digest 使用“模型知识”模式，不阻断。
-- Mock 模式返回 2 条“本地模拟”来源（URL 为空）。
+- Prompt（digest）明确要求：优先使用联网资料、冲突以资料为准、资料带日期时优先较新权威内容。
+- 题目的 `source_refs` 仍只允许本次检索到的 URL，编造链接会在 `normalize_question` 中被清空。
 
 ---
 
@@ -271,4 +286,4 @@ filter_results() -> rerank_score >= 1.5，URL 去重，长度截断
 - Base URL 写到 `/compatible-mode/v1`；
 - 模型 ID 用网关 `/models` 返回的值（如 `deepseek-v4.1-flash-1017`，`deepseek-flash` 会 404）；
 - JSON mode/thinking 字段通常兼容，但仍需用 MockTransport/真实请求验证；
-- 这类网关通常没有 DeepSeek 官方 Search API，设 `ENABLE_WEB_SEARCH=false`；真实模式下会用 `NoopSearchClient`（来源为空），不会伪造来源。
+- 这类网关通常没有 DeepSeek 官方 Search API；推荐把检索切到 Tavily：`SEARCH_PROVIDER=tavily` + `TAVILY_API_KEY=...`。未配置 Key 时可用 keyless 做本地演示，或设 `ENABLE_WEB_SEARCH=false` 走 `NoopSearchClient`（来源为空），不会伪造来源。

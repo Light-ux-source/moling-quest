@@ -25,17 +25,32 @@ class Settings(BaseSettings):
     llm_provider: str = "auto"
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_model: str = "deepseek-flash"
+    # 默认面向当前阿里云 MaaS 网关；官方 DeepSeek 可覆盖为 deepseek-flash
+    deepseek_model: str = "deepseek-v4.1-flash-1017"
     deepseek_thinking: bool = False          # 出题/判分默认关闭思考，省时省钱
     deepseek_timeout: float = 120.0
     deepseek_max_retries: int = 2
+    # 15 题超过单次输出上限，按批生成后合并去重
+    question_generate_batch_size: int = 5
 
-    # ---- 联网检索（DeepSeek 官方 Search API）----
+    # ---- 联网检索 ----
     enable_web_search: bool = True
-    # Search API 的 Base URL 与 Chat 网关可能不同（如阿里云 MaaS 无 Search API）
+    # auto: 有 TAVILY_API_KEY 时用 Tavily，否则尝试官方 DeepSeek Search；
+    # tavily / deepseek: 强制指定；none: 关闭检索（降级为纯模型知识）
+    search_provider: str = "auto"
+    # DeepSeek 官方 Search API 的 Base URL（与 Chat 网关可能不同，如阿里云 MaaS 无该接口）
     deepseek_search_base_url: str = "https://api.deepseek.com"
     search_count: int = 6
     search_qps_guard: bool = True
+
+    # ---- Tavily 联网检索 ----
+    tavily_api_key: str = ""
+    tavily_base_url: str = "https://api.tavily.com"
+    # 无 Key 时是否允许 Tavily keyless（免费、限流；生产建议 false）
+    tavily_allow_keyless: bool = True
+    tavily_search_depth: str = "basic"
+    tavily_topic: str = "general"
+    tavily_timeout: float = 25.0
 
     # ---- MySQL ----
     mysql_host: str = "127.0.0.1"
@@ -50,6 +65,10 @@ class Settings(BaseSettings):
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     auth_token_ttl_days: int = 30
+    # 注销后同一微信身份重新注册的冷却期（小时）
+    account_delete_cooldown_hours: int = 24
+    # 身份哈希的稳定盐；留空时回退 WECHAT_APP_SECRET（生产建议显式配置）
+    identity_pepper: str = ""
     # 仅非生产环境可用；生产必须关闭
     dev_login_enabled: bool = True
 
@@ -68,7 +87,7 @@ class Settings(BaseSettings):
     # ---- 业务限制 ----
     max_topic_chars: int = 200
     min_question_count: int = 3
-    max_question_count: int = 10
+    max_question_count: int = 15
     rate_limit_per_hour: int = 30
     login_rate_limit_per_hour: int = 20
 
@@ -89,6 +108,31 @@ class Settings(BaseSettings):
     @property
     def mode(self) -> str:
         return "mock" if self.is_mock else "deepseek"
+
+    @property
+    def effective_search_provider(self) -> str:
+        """解析出实际可用的检索源；auto 不会在无 Key 时偷偷启用 keyless。"""
+        if not self.enable_web_search:
+            return "none"
+        provider = (self.search_provider or "auto").strip().lower()
+        if provider in {"none", "off", "disabled"}:
+            return "none"
+        if provider == "tavily":
+            return "tavily" if (self.tavily_api_key.strip() or self.tavily_allow_keyless) else "none"
+        if provider == "deepseek":
+            return "deepseek" if self.deepseek_api_key.strip() else "none"
+        # auto：显式配置 Tavily Key 才启用；否则仅在非 MaaS 网关上尝试官方 Search
+        if self.tavily_api_key.strip():
+            return "tavily"
+        if "maas.aliyuncs.com" in self.deepseek_base_url.lower():
+            return "none"
+        if self.deepseek_api_key.strip() and self.deepseek_search_base_url.strip():
+            return "deepseek"
+        return "none"
+
+    @property
+    def web_search_available(self) -> bool:
+        return (not self.is_mock) and self.effective_search_provider != "none"
 
     @property
     def wechat_login_configured(self) -> bool:

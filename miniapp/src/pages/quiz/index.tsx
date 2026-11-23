@@ -18,6 +18,7 @@ import {
 import type { QuestionType, SessionDetail } from '../../types'
 import { DIFFICULTY_META, TYPE_META } from '../../types'
 import { isBlankAnswer, topicShort } from '../../utils/format'
+import { STORAGE_KEYS } from '../../config'
 import './index.css'
 
 export default function QuizPage() {
@@ -30,7 +31,15 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [autoNext, setAutoNext] = useState(() => {
+    try {
+      return Taro.getStorageSync(STORAGE_KEYS.autoNext) === true
+    } catch (err) {
+      return false
+    }
+  })
   const alive = useRef(true)
+  const autoNextTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     alive.current = true
@@ -82,6 +91,23 @@ export default function QuizPage() {
   }, [answers, current, session])
 
   useEffect(() => {
+    try {
+      Taro.setStorageSync(STORAGE_KEYS.autoNext, autoNext)
+    } catch (err) {
+      console.warn('保存自动下一题偏好失败', err)
+    }
+  }, [autoNext])
+
+  useEffect(() => {
+    return () => {
+      if (autoNextTimer.current) {
+        clearTimeout(autoNextTimer.current)
+        autoNextTimer.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!session || session.status !== 'ready') return
     updateProgress(session.id, current + 1).catch(() => undefined)
   }, [current, session])
@@ -103,13 +129,33 @@ export default function QuizPage() {
       const prev = Array.isArray(answerValue) ? answerValue : []
       const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key].sort()
       setAnswer(question.id, next)
-    } else {
-      setAnswer(question.id, key)
+      return
     }
+
+    setAnswer(question.id, key)
+    if (autoNext && question.type === 'single_choice' && !isLast) {
+      if (autoNextTimer.current) clearTimeout(autoNextTimer.current)
+      autoNextTimer.current = setTimeout(() => {
+        autoNextTimer.current = null
+        goTo(current + 1)
+      }, 300)
+    }
+  }
+
+  const toggleAutoNext = () => {
+    if (autoNextTimer.current) {
+      clearTimeout(autoNextTimer.current)
+      autoNextTimer.current = null
+    }
+    setAutoNext((value) => !value)
   }
 
   const goTo = (index: number) => {
     if (index < 0 || index >= total) return
+    if (autoNextTimer.current) {
+      clearTimeout(autoNextTimer.current)
+      autoNextTimer.current = null
+    }
     setCurrent(index)
     Taro.pageScrollTo({ scrollTop: 0, duration: 120 })
   }
@@ -200,9 +246,22 @@ export default function QuizPage() {
         </View>
 
         <View className='quiz-tags'>
-          <View className='chip chip-active'>{meta?.label || '题目'}</View>
-          <View className='chip chip-ghost'>{DIFFICULTY_META[question.difficulty] || '中等'}</View>
-          {question.type === 'multiple_choice' && <View className='chip chip-amber'>选全才得分</View>}
+          <View className='quiz-tags-left'>
+            <View className='chip chip-active'>{meta?.label || '题目'}</View>
+            <View className='chip chip-ghost'>{DIFFICULTY_META[question.difficulty] || '中等'}</View>
+            {question.type === 'multiple_choice' && <View className='chip chip-amber'>选全才得分</View>}
+          </View>
+          {question.type === 'single_choice' && (
+            <View
+              className={`auto-next ${autoNext ? 'on' : ''}`}
+              onClick={toggleAutoNext}
+            >
+              <Text className='auto-next-label'>自动下一题</Text>
+              <View className='auto-next-track'>
+                <View className='auto-next-thumb' />
+              </View>
+            </View>
+          )}
         </View>
 
         <View className='question-stem'>{question.stem}</View>
@@ -266,7 +325,7 @@ export default function QuizPage() {
             {!isLast && <Icon name='arrow-right-paper' size={16} />}
           </View>
         </View>
-        <View className='dots'>
+        <View className={`dots ${total > 10 ? 'compact' : ''}`}>
           {questions.map((q, index) => {
             const answered = !isBlankAnswer(answers[q.id])
             return (

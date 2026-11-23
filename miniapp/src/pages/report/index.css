@@ -310,14 +310,6 @@
   color: var(--ink-3);
   line-height: 1.6;
 }
-.report-usage {
-  margin-top: 8px;
-  text-align: center;
-  font-family: var(--font-sans);
-  font-size: 20px;
-  color: var(--ink-3);
-  line-height: 1.6;
-}
 .report-bottom-space {
   height: 280px;
 }

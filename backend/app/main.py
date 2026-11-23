@@ -16,6 +16,7 @@ from .api.routes import router
 from .config import get_settings
 from .llm import close_llm
 from .search import close_search
+from .services.auth import clear_expired_deletions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,19 +29,26 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     db.init_db()
+    clear_expired_deletions()
     Path(settings.avatar_upload_dir).mkdir(parents=True, exist_ok=True)
     logger.info(
-        "服务启动 env=%s mode=%s model=%s search=%s db=%s wechat_login=%s dev_login=%s",
+        "服务启动 env=%s mode=%s model=%s search=%s provider=%s db=%s wechat_login=%s dev_login=%s",
         settings.env,
         settings.mode,
         settings.deepseek_model,
-        settings.enable_web_search and not settings.is_mock,
+        settings.web_search_available,
+        settings.effective_search_provider,
         settings.mysql_dsn_safe,
         settings.wechat_login_configured,
         settings.dev_login_allowed,
     )
     if settings.is_mock:
         logger.warning("当前为 Mock 模式（未配置 DEEPSEEK_API_KEY），AI 结果为演示数据")
+    elif "v4.1-flash" not in settings.deepseek_model.lower():
+        logger.warning(
+            "当前真实模型 %s 不是产品要求的 v4.1-flash；请检查 DEEPSEEK_MODEL",
+            settings.deepseek_model,
+        )
     yield
     await close_llm()
     await close_search()

@@ -194,3 +194,71 @@
   color: var(--ink-3);
   text-align: center;
 }
+
+/* 新用户完善资料 */
+.login-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin: 30px 0 8px;
+}
+.login-avatar-btn {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  background: var(--moss-light);
+  border: 3px solid rgba(62, 102, 80, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  line-height: 1;
+}
+.login-avatar-btn::after {
+  border: none;
+}
+.login-avatar-img {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+}
+.login-avatar-btn .mascot-head {
+  width: 76px;
+  height: 76px;
+}
+.login-avatar-hint {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  color: var(--ink-3);
+}
+.login-nickname-input {
+  width: 100%;
+  min-height: 88px;
+  padding: 0 28px;
+  border-radius: 24px;
+  border: 3px solid var(--line);
+  background: #fffdf8;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  color: var(--ink);
+  box-sizing: border-box;
+  text-align: center;
+}
+.login-nickname-placeholder {
+  color: #9a9585;
+}
+.login-profile-save {
+  width: 100%;
+  margin-top: 8px;
+}
+.login-profile-save::after {
+  border: none;
+}
+.login-profile-skip {
+  width: 100%;
+  min-height: 84px;
+  font-size: 28px;
+}

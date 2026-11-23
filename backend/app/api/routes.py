@@ -33,11 +33,9 @@ from ..schemas import (
     ReportPayload,
     SessionCreate,
     SessionDetail,
-    SettingsUpdate,
     SettlementPayload,
     SourceItem,
     SubmitAnswers,
-    UserSettings,
     WechatLoginRequest,
 )
 from ..services import auth as auth_service
@@ -293,7 +291,8 @@ async def health() -> HealthResponse:
         version=settings.app_version,
         mode=settings.mode,
         model=settings.deepseek_model if not settings.is_mock else "mock-deepseek-flash",
-        web_search=settings.enable_web_search and not settings.is_mock,
+        web_search=settings.web_search_available,
+        search_provider=settings.effective_search_provider,
         database="mysql",
         auth="wechat",
         wechat_login=settings.wechat_login_configured,
@@ -639,14 +638,14 @@ async def create_comprehensive(
         raise HTTPException(status_code=409, detail="章末综合关只能基于标准章节生成")
     session = db.get_session(chapter["session_id"])
     if not session or session["status"] != "completed":
-        raise HTTPException(status_code=409, detail="先完成本章 5 个节点，再来挑战章末综合")
+        raise HTTPException(status_code=409, detail="先完成本章全部节点，再来挑战章末综合")
     if db.get_comprehensive_chapter(chapter_id):
         raise HTTPException(status_code=409, detail="本章的章末综合已经生成过了")
 
     detail = build_chapter_detail(chapter_id)
     question_nodes = [n for n in (detail or {}).get("nodes", []) if n.get("kind") == "question"]
     if not question_nodes or any(int(n.get("stars") or 0) < 3 for n in question_nodes):
-        raise HTTPException(status_code=409, detail="需要前 5 关全部满星才能解锁章末综合")
+        raise HTTPException(status_code=409, detail="需要全部关卡满星才能解锁章末综合")
 
     count = 3
     topic = f"{chapter.get('topic') or chapter.get('title') or '本章'} · 章末综合"
@@ -670,7 +669,7 @@ async def create_comprehensive(
 
 
 # --------------------------------------------------------------------------- #
-# profile / records / settings
+# profile / records
 # --------------------------------------------------------------------------- #
 @router.get("/profile", response_model=ProfilePayload)
 async def get_profile(request: Request) -> ProfilePayload:
@@ -718,22 +717,13 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)) -> Dict[
     return {"avatar_url": url}
 
 
-@router.get("/profile/settings", response_model=UserSettings)
-async def get_settings_payload(request: Request) -> UserSettings:
-    user = _require_user(request)
-    return UserSettings(**db.get_user_settings(user["id"]))
-
-
-@router.patch("/profile/settings", response_model=UserSettings)
-async def update_settings_payload(payload: SettingsUpdate, request: Request) -> UserSettings:
-    user = _require_user(request)
-    data = db.upsert_user_settings(user["id"], reminder_enabled=payload.reminder_enabled)
-    return UserSettings(**data)
-
-
 @router.delete("/profile", status_code=204)
 async def delete_profile(request: Request) -> Response:
     user = _require_user(request)
+    # 老账号可能缺少身份哈希：注销前补写，保证 24h 冷却可识别同一微信
+    identity_hash = auth_service.identity_hash_for_user(user)
+    if identity_hash and user.get("identity_hash") != identity_hash:
+        db.update_user(user["id"], identity_hash=identity_hash)
     db.anonymize_user_data(user["id"])
     db.soft_delete_user(user["id"])
     return Response(status_code=204)

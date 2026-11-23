@@ -183,3 +183,21 @@
   border-radius: 52px;
   margin-top: 32px;
 }
+/* 10/15 题等紧凑地图：缩小节点与标签，避免重叠 */
+.map-canvas.dense .map-node {
+  width: 84px;
+  height: 84px;
+  font-size: 24px;
+}
+.map-canvas.dense .map-node.final {
+  width: 92px;
+  height: 92px;
+}
+.map-canvas.dense .map-label {
+  max-width: 96px;
+  padding: 3px 10px;
+  font-size: 18px;
+}
+.map-canvas.dense .map-node-wrap {
+  gap: 6px;
+}

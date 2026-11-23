@@ -9,10 +9,10 @@ import {
   logout as apiLogout,
   setAuthSession
 } from './api'
-import type { User } from '../types'
+import type { AuthResponse, User } from '../types'
 
 /** 微信一键登录：小程序端拿 code，交给后端换 openid。 */
-export async function signInWithWechat(): Promise<User> {
+export async function signInWithWechat(): Promise<AuthResponse> {
   if (!IS_WEAPP) {
     throw new Error('当前环境不支持微信登录，请使用体验登录')
   }
@@ -22,14 +22,14 @@ export async function signInWithWechat(): Promise<User> {
   }
   const data = await loginWechat(result.code)
   setAuthSession(data.token, data.user)
-  return data.user
+  return data
 }
 
 /** 本地体验登录：仅开发/验收环境使用，生产由后端关闭。 */
-export async function signInDev(nickname?: string): Promise<User> {
+export async function signInDev(nickname?: string): Promise<AuthResponse> {
   const data = await loginDev(nickname)
   setAuthSession(data.token, data.user)
-  return data.user
+  return data
 }
 
 export async function signOut(): Promise<void> {
