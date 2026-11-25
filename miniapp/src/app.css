@@ -1,6 +1,7 @@
 @import "./styles/tokens.css";
 @import "./styles/noise.css";
 @import "./styles/components.css";
+@import "./styles/kb.css";
 
 /* 全局：H5 也使用纸色底，避免切换瞬间白闪 */
 html,

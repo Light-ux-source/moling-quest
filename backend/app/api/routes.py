@@ -23,6 +23,17 @@ from ..schemas import (
     ChapterListResponse,
     DevLoginRequest,
     HealthResponse,
+    KbCreate,
+    KbDetail,
+    KbDocumentListResponse,
+    KbDocumentPublic,
+    KbListResponse,
+    KbSearchRequest,
+    KbSearchResponse,
+    KbSummary,
+    KbTextCreate,
+    KbUpdate,
+    KbUrlCreate,
     MeResponse,
     ProfilePayload,
     ProfileUpdate,
@@ -31,6 +42,7 @@ from ..schemas import (
     RecordItem,
     RecordListResponse,
     ReportPayload,
+    RetrievalInfo,
     SessionCreate,
     SessionDetail,
     SettlementPayload,
@@ -39,7 +51,9 @@ from ..schemas import (
     WechatLoginRequest,
 )
 from ..services import auth as auth_service
+from ..services import kb as kb_service
 from ..services import quota
+from ..services.ingest import ingest_document
 from ..services.chapters import build_chapter_detail, build_profile, list_chapter_summaries
 from ..services.grading import run_grading
 from ..services.question_gen import generate_for_session
@@ -50,6 +64,8 @@ router = APIRouter(prefix="/api/v1", tags=["learning"])
 
 _rate: Dict[str, Deque[float]] = defaultdict(deque)
 _login_rate: Dict[str, Deque[float]] = defaultdict(deque)
+_kb_rate: Dict[str, Deque[float]] = defaultdict(deque)
+_kb_create_rate: Dict[str, Deque[float]] = defaultdict(deque)
 _WINDOW_SEC = 3600
 _CLIENT_RE = re.compile(r"[^A-Za-z0-9_-]")
 ALL_TYPES = list(TYPE_LABELS)
@@ -159,6 +175,20 @@ def _new_session_id() -> str:
     return f"s_{uuid.uuid4().hex[:12]}"
 
 
+def _retrieval_info(session: Dict) -> Optional[RetrievalInfo]:
+    trace = session.get("retrieval_trace")
+    if not isinstance(trace, dict) or not trace:
+        return None
+    return RetrievalInfo(
+        mode=str(trace.get("mode") or session.get("source_mode") or "model"),
+        rounds=int(trace.get("rounds") or 0),
+        queries=[str(item) for item in (trace.get("queries") or [])][:8],
+        chunks=int(trace.get("chunks") or len(trace.get("selected") or [])),
+        web_sources=int(trace.get("web_sources") or 0),
+        fallback=bool(trace.get("fallback")),
+    )
+
+
 def _to_detail(session: Dict, questions: Optional[List[Dict]] = None, answered: int = 0) -> SessionDetail:
     public = [
         QuestionPublic(
@@ -190,6 +220,9 @@ def _to_detail(session: Dict, questions: Optional[List[Dict]] = None, answered: 
         sources=[SourceItem(**s) for s in (session.get("sources") or []) if isinstance(s, dict)],
         answered_count=answered,
         model=session.get("model"),
+        kb_ids=session.get("kb_ids") or [],
+        source_mode=session.get("source_mode") or "model",
+        retrieval=_retrieval_info(session),
         created_at=session["created_at"],
         updated_at=session["updated_at"],
     )
@@ -234,6 +267,8 @@ def _create_session_with_quota(
     types: List[str],
     kind: str,
     parent_chapter_id: Optional[str] = None,
+    kb_ids: Optional[List[str]] = None,
+    source_mode: str = "model",
 ) -> Tuple[str, str]:
     """统一处理配额校验、游客试用消费与会话/章节创建。"""
     settings = get_settings()
@@ -263,6 +298,8 @@ def _create_session_with_quota(
                 "progress": 2,
                 "current_seq": 1,
                 "guest_trial": consume_trial,
+                "kb_ids": kb_ids or [],
+                "source_mode": source_mode if (kb_ids or source_mode != "model") else "model",
                 "model": settings.deepseek_model if not settings.is_mock else "mock-deepseek-flash",
             }
         )
@@ -297,6 +334,13 @@ async def health() -> HealthResponse:
         auth="wechat",
         wechat_login=settings.wechat_login_configured,
         dev_login=settings.dev_login_allowed,
+        embedding=settings.effective_embedding_provider,
+        embedding_model=settings.embedding_model
+        if settings.effective_embedding_provider == "openai"
+        else "hash-char-ngram",
+        vector_store=settings.vector_store_mode,
+        rag=settings.rag_available,
+        kb_enabled=settings.kb_enabled,
     )
 
 
@@ -371,6 +415,19 @@ async def create_session(
     types = ALL_TYPES if kind == "daily" else (payload.types or ALL_TYPES)
     types = [t for t in types if t in TYPE_LABELS] or ALL_TYPES
 
+    kb_ids = list(payload.kb_ids or [])
+    source_mode = payload.source_mode
+    if kind == "daily" and kb_ids:
+        raise HTTPException(status_code=422, detail="今日挑战不支持指定资料库")
+    if not kb_ids:
+        source_mode = "model"
+    elif source_mode == "model":
+        source_mode = "kb_only"
+    try:
+        kb_service.validate_session_kbs(user, client_id, kb_ids)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
     try:
         session_id, chapter_id = _create_session_with_quota(
             user=user,
@@ -381,6 +438,8 @@ async def create_session(
             count=count,
             types=types,
             kind=kind,
+            kb_ids=kb_ids,
+            source_mode=source_mode,
         )
     except quota.QuotaError as exc:
         raise HTTPException(status_code=429, detail=exc.message) from exc
@@ -602,6 +661,207 @@ async def recent_sessions(request: Request, limit: int = 10) -> Dict:
 
 
 # --------------------------------------------------------------------------- #
+# knowledge base
+# --------------------------------------------------------------------------- #
+@router.get("/kb", response_model=KbListResponse)
+async def list_knowledge_bases(request: Request) -> KbListResponse:
+    user, client_id = _auth(request)
+    return KbListResponse(
+        items=kb_service.list_kb(user, client_id),
+        limits=kb_service.limits(user, client_id),
+    )
+
+
+@router.post("/kb", response_model=KbSummary, status_code=201)
+async def create_knowledge_base(payload: KbCreate, request: Request) -> KbSummary:
+    settings = get_settings()
+    if _rate_limited(_kb_create_rate, _client_ip(request), settings.kb_create_per_hour):
+        raise HTTPException(status_code=429, detail="创建资料库太频繁，请稍后再试")
+    user, client_id = _auth(request)
+    try:
+        data = kb_service.create_kb(user, client_id, payload.name, payload.description)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return KbSummary(**data)
+
+
+@router.get("/kb/{kb_id}", response_model=KbDetail)
+async def get_knowledge_base(kb_id: str, request: Request) -> KbDetail:
+    user, client_id = _auth(request)
+    try:
+        data = kb_service.detail(user, client_id, kb_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return KbDetail(**data)
+
+
+@router.patch("/kb/{kb_id}", response_model=KbSummary)
+async def update_knowledge_base(
+    kb_id: str, payload: KbUpdate, request: Request
+) -> KbSummary:
+    user, client_id = _auth(request)
+    try:
+        data = kb_service.update_kb(
+            user,
+            client_id,
+            kb_id,
+            name=payload.name,
+            description=payload.description,
+        )
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return KbSummary(**data)
+
+
+@router.delete("/kb/{kb_id}", status_code=204)
+async def delete_knowledge_base(kb_id: str, request: Request) -> Response:
+    user, client_id = _auth(request)
+    try:
+        await kb_service.delete_kb(user, client_id, kb_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return Response(status_code=204)
+
+
+@router.get("/kb/{kb_id}/documents", response_model=KbDocumentListResponse)
+async def list_kb_documents(kb_id: str, request: Request) -> KbDocumentListResponse:
+    user, client_id = _auth(request)
+    try:
+        kb_service.detail(user, client_id, kb_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    docs = db.list_kb_documents(kb_id)
+    return KbDocumentListResponse(
+        items=[KbDocumentPublic(**kb_service.document_public(doc)) for doc in docs]
+    )
+
+
+@router.post(
+    "/kb/{kb_id}/documents/file", response_model=KbDocumentPublic, status_code=202
+)
+async def upload_kb_document(
+    kb_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+) -> KbDocumentPublic:
+    settings = get_settings()
+    if _rate_limited(_kb_rate, _client_ip(request), settings.kb_upload_per_hour):
+        raise HTTPException(status_code=429, detail="上传资料太频繁，请稍后再试")
+    user, client_id = _auth(request)
+    try:
+        doc = await kb_service.create_file_document(user, client_id, kb_id, file)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    background_tasks.add_task(ingest_document, doc["id"])
+    return KbDocumentPublic(**doc)
+
+
+@router.post(
+    "/kb/{kb_id}/documents/url", response_model=KbDocumentPublic, status_code=202
+)
+async def add_kb_url(
+    kb_id: str,
+    payload: KbUrlCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> KbDocumentPublic:
+    settings = get_settings()
+    if _rate_limited(_kb_rate, _client_ip(request), settings.kb_upload_per_hour):
+        raise HTTPException(status_code=429, detail="添加资料太频繁，请稍后再试")
+    user, client_id = _auth(request)
+    try:
+        doc = await kb_service.create_url_document(
+            user, client_id, kb_id, payload.url, payload.title
+        )
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    background_tasks.add_task(ingest_document, doc["id"])
+    return KbDocumentPublic(**doc)
+
+
+@router.post(
+    "/kb/{kb_id}/documents/text", response_model=KbDocumentPublic, status_code=202
+)
+async def add_kb_text(
+    kb_id: str,
+    payload: KbTextCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> KbDocumentPublic:
+    settings = get_settings()
+    if _rate_limited(_kb_rate, _client_ip(request), settings.kb_upload_per_hour):
+        raise HTTPException(status_code=429, detail="添加资料太频繁，请稍后再试")
+    user, client_id = _auth(request)
+    try:
+        doc = kb_service.create_text_document(
+            user, client_id, kb_id, payload.title, payload.text
+        )
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    background_tasks.add_task(ingest_document, doc["id"])
+    return KbDocumentPublic(**doc)
+
+
+@router.get(
+    "/kb/{kb_id}/documents/{doc_id}", response_model=KbDocumentPublic
+)
+async def get_kb_document(kb_id: str, doc_id: str, request: Request) -> KbDocumentPublic:
+    user, client_id = _auth(request)
+    try:
+        doc = kb_service.get_document(user, client_id, kb_id, doc_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return KbDocumentPublic(**doc)
+
+
+@router.post(
+    "/kb/{kb_id}/documents/{doc_id}/retry",
+    response_model=KbDocumentPublic,
+    status_code=202,
+)
+async def retry_kb_document(
+    kb_id: str,
+    doc_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> KbDocumentPublic:
+    user, client_id = _auth(request)
+    try:
+        doc = kb_service.retry_document(user, client_id, kb_id, doc_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    background_tasks.add_task(ingest_document, doc_id)
+    return KbDocumentPublic(**doc)
+
+
+@router.delete("/kb/{kb_id}/documents/{doc_id}", status_code=204)
+async def delete_kb_document(
+    kb_id: str, doc_id: str, request: Request
+) -> Response:
+    user, client_id = _auth(request)
+    try:
+        await kb_service.delete_document(user, client_id, kb_id, doc_id)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return Response(status_code=204)
+
+
+@router.post("/kb/{kb_id}/search", response_model=KbSearchResponse)
+async def search_kb(
+    kb_id: str, payload: KbSearchRequest, request: Request
+) -> KbSearchResponse:
+    user, client_id = _auth(request)
+    try:
+        items = await kb_service.search(
+            user, client_id, kb_id, payload.query, payload.top_k
+        )
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return KbSearchResponse(query=payload.query, items=items)
+
+
+# --------------------------------------------------------------------------- #
 # chapters
 # --------------------------------------------------------------------------- #
 @router.get("/chapters", response_model=ChapterListResponse)
@@ -649,6 +909,12 @@ async def create_comprehensive(
 
     count = 3
     topic = f"{chapter.get('topic') or chapter.get('title') or '本章'} · 章末综合"
+    parent_kb_ids = list(session.get("kb_ids") or [])
+    parent_mode = session.get("source_mode") or "model"
+    try:
+        kb_service.validate_session_kbs(user, client_id, parent_kb_ids)
+    except kb_service.KbError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     try:
         new_session_id, _ = _create_session_with_quota(
             user=user,
@@ -660,6 +926,8 @@ async def create_comprehensive(
             types=ALL_TYPES,
             kind="comprehensive",
             parent_chapter_id=chapter_id,
+            kb_ids=parent_kb_ids,
+            source_mode=parent_mode if parent_kb_ids else "model",
         )
     except quota.QuotaError as exc:
         raise HTTPException(status_code=429, detail=exc.message) from exc
@@ -724,6 +992,11 @@ async def delete_profile(request: Request) -> Response:
     identity_hash = auth_service.identity_hash_for_user(user)
     if identity_hash and user.get("identity_hash") != identity_hash:
         db.update_user(user["id"], identity_hash=identity_hash)
+    # 资料库可能包含个人文档：注销时优先彻底删除，而不是匿名保留。
+    try:
+        await kb_service.purge_user_knowledge(user["id"])
+    except Exception:  # noqa: BLE001 - 清理失败不阻塞注销主流程
+        logger.exception("注销时清理资料库失败 user=%s", user["id"])
     db.anonymize_user_data(user["id"])
     db.soft_delete_user(user["id"])
     return Response(status_code=204)

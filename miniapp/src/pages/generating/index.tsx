@@ -13,7 +13,8 @@ import { topicShort } from '../../utils/format'
 import { goBackOrHome } from '../../utils/nav'
 import './index.css'
 
-const STEP_TITLES = ['联网检索资料', '提炼知识要点', '生成个性化题目']
+const WEB_STEP_TITLES = ['联网检索资料', '提炼知识要点', '生成个性化题目']
+const KB_STEP_TITLES = ['检索你的资料库', '提炼资料要点', '生成个性化题目']
 
 function stepStates(session: SessionDetail | null): Array<'done' | 'active' | 'pending'> {
   const status = session?.status || 'queued'
@@ -154,6 +155,8 @@ export default function GeneratingPage() {
   const progress = session?.progress || 4
   const sources = session?.sources?.length || 0
   const topic = session?.topic || '你的主题'
+  const hasKb = !!session?.kb_ids?.length
+  const stepTitles = hasKb ? KB_STEP_TITLES : WEB_STEP_TITLES
 
   return (
     <PageShell>
@@ -165,6 +168,13 @@ export default function GeneratingPage() {
         </View>
         <View className='gen-title'>正在为「{topicShort(topic, 12)}」准备题目</View>
         <View className='gen-sub'>通常 10–40 秒，可以先在脑子里过一遍知识点</View>
+        {hasKb ? (
+          <View className='gen-kb-note'>
+            {session?.source_mode === 'hybrid'
+              ? `依据 ${session.kb_ids.length} 个资料库，并补充联网资料`
+              : `只依据 ${session.kb_ids.length} 个资料库出题，逐题标注来源`}
+          </View>
+        ) : null}
 
         <View className='gen-progress'>
           <ProgressBar value={progress} max={100} />
@@ -175,15 +185,23 @@ export default function GeneratingPage() {
         </View>
 
         <View className='gen-steps'>
-          {STEP_TITLES.map((title, index) => {
+          {stepTitles.map((title, index) => {
             const state = states[index]
             const extra =
               index === 0
-                ? sources > 0
-                  ? `找到 ${sources} 条来源`
-                  : state === 'done'
-                    ? '未检索到来源，使用模型知识'
-                    : '进行中'
+                ? hasKb
+                  ? session?.retrieval
+                    ? session.retrieval.chunks > 0
+                      ? `命中 ${session.retrieval.chunks} 个片段 · ${session.retrieval.rounds} 轮检索`
+                      : '未命中片段，改用联网或模型知识'
+                    : state === 'done'
+                      ? '资料库检索完成'
+                      : '正在检索资料库'
+                  : sources > 0
+                    ? `找到 ${sources} 条来源`
+                    : state === 'done'
+                      ? '未检索到来源，使用模型知识'
+                      : '进行中'
                 : state === 'done'
                   ? '已完成'
                   : state === 'active'

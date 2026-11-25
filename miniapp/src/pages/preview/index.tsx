@@ -62,7 +62,7 @@ export default function PreviewPage() {
   }, [sessionId])
 
   const copySource = (url: string) => {
-    if (!url) return
+    if (!url || !/^https?:\/\//i.test(url)) return
     Taro.setClipboardData({ data: url }).then(() => {
       Taro.showToast({ title: '链接已复制', icon: 'none' })
     })
@@ -126,6 +126,7 @@ export default function PreviewPage() {
 
   const questions = session.questions || []
   const sources = session.sources || []
+  const kbSources = sources.filter((source) => source.kind === 'kb')
   const levelLabel = session.level === 'basic' ? '入门' : session.level === 'advanced' ? '进阶' : '挑战'
 
   return (
@@ -145,7 +146,7 @@ export default function PreviewPage() {
           <View className='preview-meta'>
             <View className='preview-meta-chip'>
               <Icon name='leaf-paper' size={16} />
-              {sources.length} 个来源
+              {sources.length} 个来源{kbSources.length ? ` · 知识库 ${kbSources.length}` : ''}
             </View>
             <View className='preview-meta-chip'>
               <Icon name='list-paper' size={16} />
@@ -176,6 +177,12 @@ export default function PreviewPage() {
           ))}
         </View>
 
+        {kbSources.length > 0 ? (
+          <View className='preview-note'>
+            本次出题依据 {kbSources.length} 个知识库片段；报告里可逐题查看来源。
+          </View>
+        ) : null}
+
         {questions.length < session.question_count && (
           <View className='preview-note'>
             生成了 {questions.length} 题（请求 {session.question_count} 题），校验时丢弃了部分不合规题目。
@@ -189,12 +196,21 @@ export default function PreviewPage() {
               <Text className='more'>点击复制链接</Text>
             </View>
             {sources.map((source, index) => (
-              <View key={`${source.title}-${index}`} className='preview-source' onClick={() => copySource(source.url)}>
+              <View
+                key={`${source.title}-${index}`}
+                className={`preview-source ${source.kind === 'kb' ? 'kb' : ''}`}
+                onClick={() => copySource(source.url)}
+              >
                 <View className='grow'>
-                  <Text className='preview-source-title'>{source.title || '未命名来源'}</Text>
+                  <View className='preview-source-top'>
+                    <Text className='preview-source-title'>{source.title || '未命名来源'}</Text>
+                    <Text className={`source-kind ${source.kind === 'kb' ? 'kb' : ''}`}>
+                      {source.kind === 'kb' ? '知识库' : '网页'}
+                    </Text>
+                  </View>
                   <Text className='preview-source-site'>{source.site_name || '未知站点'}</Text>
                 </View>
-                <Icon name='copy-ink3' size={16} />
+                {source.kind === 'kb' ? null : <Icon name='copy-ink3' size={16} />}
               </View>
             ))}
           </View>

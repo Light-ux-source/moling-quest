@@ -1,12 +1,12 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Textarea } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import PageShell from '../../components/PageShell'
 import PageHeader from '../../components/PageHeader'
 import Icon from '../../components/Icon'
 import LoginSheet from '../../components/LoginSheet'
-import { createSession, pushRecentSession } from '../../services/api'
-import type { Level, QuestionType } from '../../types'
+import { createSession, getKnowledgeBases, pushRecentSession } from '../../services/api'
+import type { KbSummary, Level, QuestionType } from '../../types'
 import { ALL_TYPES, LEVEL_META, TYPE_META } from '../../types'
 import { safeDecode } from '../../utils/format'
 import { errorMessage, handleCreateError } from '../../utils/quota'
@@ -31,7 +31,55 @@ export default function CreatePage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [loginOpen, setLoginOpen] = useState(false)
+  const [kbList, setKbList] = useState<KbSummary[]>([])
+  const [kbIds, setKbIds] = useState<string[]>([])
+  const [sourceMode, setSourceMode] = useState<'kb_only' | 'hybrid'>('kb_only')
+  const [kbLoading, setKbLoading] = useState(true)
   const submittingRef = useRef(false)
+
+  const loadKbs = useCallback(async () => {
+    try {
+      const data = await getKnowledgeBases()
+      setKbList(data.items || [])
+    } catch (err) {
+      console.warn('资料库加载失败', err)
+    } finally {
+      setKbLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadKbs()
+  }, [loadKbs])
+
+  useDidShow(() => {
+    loadKbs()
+  })
+
+  const toggleKb = (id: string) => {
+    setKbIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id)
+      if (prev.length >= 3) {
+        Taro.showToast({ title: '一次最多选 3 个资料库', icon: 'none' })
+        return prev
+      }
+      return [...prev, id]
+    })
+  }
+
+  const enableKb = () => {
+    if (kbLoading) return
+    if (!kbList.length) {
+      Taro.navigateTo({ url: '/pages/kb/index' })
+      return
+    }
+    if (!kbIds.length) setKbIds([kbList[0].id])
+  }
+
+  const disableKb = () => {
+    setKbIds([])
+    setSourceMode('kb_only')
+  }
 
   const toggleType = (key: QuestionType) => {
     setTypes((prev) => {
@@ -70,7 +118,9 @@ export default function CreatePage() {
         level,
         question_count: count,
         types,
-        kind: 'standard'
+        kind: 'standard',
+        kb_ids: kbIds,
+        source_mode: kbIds.length ? sourceMode : 'model'
       })
       pushRecentSession({
         id: session.id,
@@ -131,6 +181,65 @@ export default function CreatePage() {
               </View>
             ))}
           </View>
+        </View>
+
+        <View className='create-section'>
+          <Text className='create-label'>出题资料</Text>
+          <View className='chip-row'>
+            <View className={`chip ${kbIds.length === 0 ? 'chip-active' : ''}`} onClick={disableKb}>
+              模型知识
+            </View>
+            <View className={`chip ${kbIds.length > 0 ? 'chip-active' : ''}`} onClick={enableKb}>
+              我的资料库
+            </View>
+          </View>
+
+          {kbIds.length > 0 ? (
+            <>
+              <View className='kb-pick-list'>
+                {kbList.map((kb) => (
+                  <View
+                    key={kb.id}
+                    className={`kb-pick ${kbIds.includes(kb.id) ? 'active' : ''}`}
+                    onClick={() => toggleKb(kb.id)}
+                  >
+                    <View className='grow'>
+                      <Text className='kb-pick-name'>{kb.name}</Text>
+                      <Text className='kb-pick-meta'>
+                        {kb.doc_count} 份资料 · {kb.chunk_count} 个片段
+                      </Text>
+                    </View>
+                    <View className={`kb-pick-check ${kbIds.includes(kb.id) ? 'on' : ''}`}>
+                      {kbIds.includes(kb.id) ? <Icon name='check-moss' size={16} /> : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <View className='chip-row kb-mode-row'>
+                <View
+                  className={`chip chip-sm ${sourceMode === 'kb_only' ? 'chip-active' : ''}`}
+                  onClick={() => setSourceMode('kb_only')}
+                >
+                  仅资料库
+                </View>
+                <View
+                  className={`chip chip-sm ${sourceMode === 'hybrid' ? 'chip-active' : ''}`}
+                  onClick={() => setSourceMode('hybrid')}
+                >
+                  资料库 + 联网
+                </View>
+              </View>
+              <Text className='create-level-desc'>
+                默认只依据资料库，来源可追溯；需要最新信息时再开联网。
+              </Text>
+            </>
+          ) : (
+            <View className='kb-entry-hint' onClick={() => Taro.navigateTo({ url: '/pages/kb/index' })}>
+              <Icon name='tab-book-mossdeep' size={18} />
+              <Text>上传培训资料 / 内部文档，建立自己的资料库 →</Text>
+            </View>
+          )}
+          {kbLoading ? <Text className='create-hint'>正在读取资料库…</Text> : null}
         </View>
 
         <View className='create-section'>

@@ -22,6 +22,12 @@ export interface SourceItem {
   url: string
   site_name?: string | null
   summary: string
+  /** web = 联网检索，kb = 用户知识库片段 */
+  kind?: 'web' | 'kb' | string
+  ref?: string
+  kb_id?: string
+  doc_id?: string
+  locator?: string
 }
 
 export type SessionStatus =
@@ -34,6 +40,15 @@ export type SessionStatus =
   | 'reporting'
   | 'completed'
   | 'failed'
+
+export interface RetrievalInfo {
+  mode: string
+  rounds: number
+  queries: string[]
+  chunks: number
+  web_sources: number
+  fallback: boolean
+}
 
 export interface SessionDetail {
   id: string
@@ -53,6 +68,9 @@ export interface SessionDetail {
   sources: SourceItem[]
   answered_count: number
   model?: string | null
+  kb_ids: string[]
+  source_mode: 'model' | 'kb_only' | 'hybrid' | string
+  retrieval?: RetrievalInfo | null
   created_at: string
   updated_at: string
 }
@@ -164,6 +182,8 @@ export interface ChapterDetail {
   nodes: ChapterNode[]
   comprehensive?: ChapterNode | null
   sources: SourceItem[]
+  kb_ids?: string[]
+  source_mode?: string
   created_at: string
   completed_at?: string | null
 }
@@ -182,6 +202,8 @@ export interface ChapterSummary {
   exp: number
   progress: ChapterProgress
   next_title: string
+  kb_count?: number
+  source_mode?: string
   created_at: string
   completed_at?: string | null
 }
@@ -208,7 +230,7 @@ export interface AuthResponse {
   token: string
   expires_at: string
   user: User
-  migrated: { sessions?: number; chapters?: number }
+  migrated: { sessions?: number; chapters?: number; knowledge_bases?: number; documents?: number }
   is_new?: boolean
 }
 
@@ -285,3 +307,70 @@ export const ALL_TYPES: QuestionType[] = [
   'true_false',
   'short_answer'
 ]
+// --------------------------------------------------------------------------- //
+// 知识库
+// --------------------------------------------------------------------------- //
+export type KbDocumentStatus = 'queued' | 'parsing' | 'chunking' | 'embedding' | 'ready' | 'failed'
+export type KbDocumentKind = 'file' | 'web' | 'text'
+
+export interface KbLimits {
+  max_kbs: number
+  used_kbs: number
+  remaining_kbs: number
+  max_docs_per_kb: number
+  max_file_bytes: number
+  max_text_chars: number
+  max_session_kbs: number
+  can_create: boolean
+}
+
+export interface KbSummary {
+  id: string
+  name: string
+  description?: string | null
+  doc_count: number
+  chunk_count: number
+  char_count: number
+  status: string
+  is_guest: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface KbDocument {
+  id: string
+  kb_id: string
+  kind: KbDocumentKind
+  title: string
+  source_url?: string | null
+  filename?: string | null
+  mime?: string | null
+  size_bytes: number
+  status: KbDocumentStatus
+  progress: number
+  error?: string | null
+  char_count: number
+  chunk_count: number
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+export interface KbDetail extends KbSummary {
+  documents: KbDocument[]
+  limits: KbLimits
+}
+
+export interface KbList {
+  items: KbSummary[]
+  limits: KbLimits
+}
+
+export interface KbSearchHit {
+  chunk_id: string
+  doc_id: string
+  doc_title: string
+  locator: string
+  content: string
+  score: number
+}

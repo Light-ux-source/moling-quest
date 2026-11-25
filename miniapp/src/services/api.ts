@@ -5,6 +5,11 @@ import type {
   ChapterDetail,
   ChapterKind,
   ChapterSummary,
+  KbDetail,
+  KbDocument,
+  KbList,
+  KbSearchHit,
+  KbSummary,
   Level,
   MeResponse,
   Profile,
@@ -160,6 +165,8 @@ export interface CreateSessionPayload {
   question_count: number
   types: string[]
   kind?: ChapterKind
+  kb_ids?: string[]
+  source_mode?: 'model' | 'kb_only' | 'hybrid'
 }
 
 export function createSession(payload: CreateSessionPayload): Promise<SessionDetail> {
@@ -422,6 +429,8 @@ export function uploadAvatar(filePath: string): Promise<{ avatar_url: string }> 
       url: `${API_BASE}/api/v1/profile/avatar`,
       filePath,
       name: 'file',
+      // 与知识库上传一致：H5 默认携带凭据会与后端 CORS `*` 冲突
+      withCredentials: false,
       header: {
         'X-Client-Id': getClientId(),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -453,4 +462,152 @@ export function getRecords(limit = 20, offset = 0): Promise<RecordList> {
 
 export function deleteAccount(): Promise<void> {
   return request<void>('/api/v1/profile', { method: 'DELETE' })
+}
+
+// --------------------------------------------------------------------------- //
+// 知识库
+// --------------------------------------------------------------------------- //
+export function getKnowledgeBases(): Promise<KbList> {
+  return request<KbList>('/api/v1/kb')
+}
+
+export function createKnowledgeBase(name: string, description?: string): Promise<KbSummary> {
+  return request<KbSummary>('/api/v1/kb', {
+    method: 'POST',
+    data: { name, ...(description ? { description } : {}) },
+    timeout: 20000
+  })
+}
+
+export function getKnowledgeBase(kbId: string): Promise<KbDetail> {
+  return request<KbDetail>(`/api/v1/kb/${kbId}`)
+}
+
+export function updateKnowledgeBase(
+  kbId: string,
+  payload: { name?: string; description?: string }
+): Promise<KbSummary> {
+  return request<KbSummary>(`/api/v1/kb/${kbId}`, { method: 'PATCH', data: payload })
+}
+
+export function deleteKnowledgeBase(kbId: string): Promise<void> {
+  return request<void>(`/api/v1/kb/${kbId}`, { method: 'DELETE' })
+}
+
+export function addKbText(kbId: string, title: string, text: string): Promise<KbDocument> {
+  return request<KbDocument>(`/api/v1/kb/${kbId}/documents/text`, {
+    method: 'POST',
+    data: { title, text },
+    timeout: 30000
+  })
+}
+
+export function addKbUrl(kbId: string, url: string, title?: string): Promise<KbDocument> {
+  return request<KbDocument>(`/api/v1/kb/${kbId}/documents/url`, {
+    method: 'POST',
+    data: { url, ...(title ? { title } : {}) },
+    timeout: 30000
+  })
+}
+
+export function getKbDocument(kbId: string, docId: string): Promise<KbDocument> {
+  return request<KbDocument>(`/api/v1/kb/${kbId}/documents/${docId}`)
+}
+
+export function listKbDocuments(kbId: string): Promise<{ items: KbDocument[] }> {
+  return request<{ items: KbDocument[] }>(`/api/v1/kb/${kbId}/documents`)
+}
+
+export function retryKbDocument(kbId: string, docId: string): Promise<KbDocument> {
+  return request<KbDocument>(`/api/v1/kb/${kbId}/documents/${docId}/retry`, {
+    method: 'POST',
+    timeout: 30000
+  })
+}
+
+export function deleteKbDocument(kbId: string, docId: string): Promise<void> {
+  return request<void>(`/api/v1/kb/${kbId}/documents/${docId}`, { method: 'DELETE' })
+}
+
+export function searchKb(kbId: string, query: string, topK = 5): Promise<{ query: string; items: KbSearchHit[] }> {
+  return request(`/api/v1/kb/${kbId}/search`, {
+    method: 'POST',
+    data: { query, top_k: topK },
+    timeout: 30000
+  })
+}
+
+export function uploadKbFile(
+  kbId: string,
+  filePath: string,
+  fileName?: string,
+  onProgress?: (progress: number) => void
+): Promise<KbDocument> {
+  const token = getToken()
+  return new Promise((resolve, reject) => {
+    const task = Taro.uploadFile({
+      url: `${API_BASE}/api/v1/kb/${kbId}/documents/file`,
+      filePath,
+      name: 'file',
+      ...(fileName ? { fileName } : {}),
+      // H5 的 Taro.uploadFile 默认 withCredentials=true；后端 CORS 为 * 时会被浏览器拦截
+      withCredentials: false,
+      timeout: 120000,
+      header: {
+        'X-Client-Id': getClientId(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      success(res) {
+        let parsed: any = null
+        try {
+          parsed = JSON.parse(String(res.data || '{}'))
+        } catch (err) {
+          reject(new ApiError(res.statusCode, '上传返回异常'))
+          return
+        }
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(parsed as KbDocument)
+          return
+        }
+        const detail = extractErrorDetail(parsed, res.statusCode)
+        if (res.statusCode === 401) clearAuthSession()
+        reject(new ApiError(res.statusCode, detail))
+      },
+      fail(err) {
+        reject(new ApiError(0, err?.errMsg || '上传失败，请检查网络'))
+      }
+    })
+    const progressTask = task as unknown as { onProgressUpdate?: (cb: (res: { progress: number }) => void) => void }
+    progressTask.onProgressUpdate?.((res) => onProgress?.(res.progress))
+  })
+}
+
+export interface KbPollOptions {
+  onUpdate?: (doc: KbDocument) => void
+  timeout?: number
+  interval?: number
+}
+
+/** 轮询资料处理状态，直到 ready / failed。 */
+export async function pollKbDocument(
+  kbId: string,
+  docId: string,
+  options: KbPollOptions = {}
+): Promise<KbDocument> {
+  const startedAt = Date.now()
+  const timeout = options.timeout || 180000
+  const interval = options.interval || 1500
+  let lastError: Error | null = null
+  while (Date.now() - startedAt < timeout) {
+    try {
+      const doc = await getKbDocument(kbId, docId)
+      options.onUpdate?.(doc)
+      if (doc.status === 'ready' || doc.status === 'failed') return doc
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 401)) throw err
+      lastError = err as Error
+    }
+    await sleep(interval)
+  }
+  throw new ApiError(0, lastError ? `等待超时：${lastError.message}` : '资料处理超时，请稍后刷新')
 }

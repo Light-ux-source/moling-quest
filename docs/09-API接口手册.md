@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 | --- | --- |
-| 版本 | v1.1（对应后端 v0.3.0） |
+| 版本 | v1.2（对应后端 v0.4.0；新增知识库） |
 | Base URL | `http://127.0.0.1:8000`（本地）；生产为 HTTPS 域名 |
 | 前缀 | `/api/v1` |
 | 格式 | `application/json`；UTF-8；时间为 ISO 8601 UTC |
@@ -88,6 +88,19 @@
 | 19 | POST | `/profile/avatar` | 上传头像 | 200 |
 | 20 | DELETE | `/profile` | 注销账号（24h 冷却） | 204 |
 | 21 | GET | `/records` | 学习记录列表（仅列表） | 200 |
+| 22 | GET | `/kb` | 资料库列表 + 限额 | 200 |
+| 23 | POST | `/kb` | 新建资料库 | 201 |
+| 24 | GET | `/kb/{id}` | 资料库详情 + 资料列表 | 200 |
+| 25 | PATCH | `/kb/{id}` | 改名/描述 | 200 |
+| 26 | DELETE | `/kb/{id}` | 删除资料库（级联向量） | 204 |
+| 27 | POST | `/kb/{id}/documents/file` | 上传文件（multipart） | 202 |
+| 28 | POST | `/kb/{id}/documents/url` | 网页链接 | 202 |
+| 29 | POST | `/kb/{id}/documents/text` | 粘贴文本 | 202 |
+| 30 | GET | `/kb/{id}/documents` | 资料列表 | 200 |
+| 31 | GET | `/kb/{id}/documents/{doc_id}` | 资料状态/进度 | 200 |
+| 32 | POST | `/kb/{id}/documents/{doc_id}/retry` | 失败重试 | 202 |
+| 33 | DELETE | `/kb/{id}/documents/{doc_id}` | 删除资料 | 204 |
+| 34 | POST | `/kb/{id}/search` | 检索调试 | 200 |
 
 ---
 
@@ -794,3 +807,63 @@ curl -s $BASE/profile -H "X-Client-Id: $CID"
 - 前端根据 429 + 当前是否登录决定弹登录或展示额度用完：游客打开登录弹层；登录用户弹「今日额度已用完」并提供 **回首页** 出口。
 - 失败重试不重复扣；整组失败返还（用户 `quota_refunded=1`，游客退回试用）。
 - 预览页“重新生成”走 `/sessions/{id}/regenerate`，不新建会话、不重复扣额度。
+
+
+---
+
+## 12. 知识库（v0.4.0）
+
+> 完整字段/流程/限额见 [22-知识库与RAG实现](./22-知识库与RAG实现.md)。本节只列契约要点。
+
+### 12.1 `POST /sessions` 增量字段
+
+```json
+{
+  "topic": "公司内部缓存规范",
+  "level": "advanced",
+  "question_count": 3,
+  "kb_ids": ["kb_xxxxxxxxxxxx"],
+  "source_mode": "kb_only"
+}
+```
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `kb_ids` | `kb_` 前缀，最多 3 个 | 留空 = 原链路 |
+| `source_mode` | `model` / `kb_only` / `hybrid` | `kb_ids` 非空且不传时默认 `kb_only`；`daily` 不允许带 `kb_ids` |
+
+`GET /sessions/{id}` 新增：
+
+```json
+{
+  "kb_ids": ["kb_xxx"],
+  "source_mode": "kb_only",
+  "retrieval": {
+    "mode": "kb_only",
+    "rounds": 1,
+    "queries": ["缓存规范", "强缓存 TTL"],
+    "chunks": 3,
+    "web_sources": 0,
+    "fallback": false
+  }
+}
+```
+
+### 12.2 资料状态
+
+`queued → parsing → chunking → embedding → ready`；失败为 `failed`（带中文 `error`，可 `retry`）。前端建议 1.5s 轮询，直到 ready/failed。
+
+### 12.3 知识库限额
+
+| 身份 | 资料库数 | 每库资料 | 单文件 | 单篇正文 | 单次选库 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 游客 | 1 | 30 | 20MB | 20 万字 | 3 |
+| 登录 | 5 | 30 | 20MB | 20 万字 | 3 |
+
+错误码：404 无权/不存在；409 资料未就绪/重复/空库；422 类型/大小/URL；429 限额；503 功能未启用。
+
+### 12.4 来源格式
+
+- 知识库：`kb://{doc_id}/chunk/{seq}`，`SourceItem.kind="kb"`，带 `locator`（第 3 页/幻灯片 4/第 12-51 行）；
+- 网页：原 URL，`kind="web"`；
+- 题目 `source_refs` 只保留本次证据白名单中的 ref。

@@ -116,7 +116,7 @@ export default function ReportPage() {
   }
 
   const copySource = (url: string) => {
-    if (!url) return
+    if (!url || !/^https?:\/\//i.test(url)) return
     Taro.setClipboardData({ data: url }).then(() => {
       Taro.showToast({ title: '链接已复制', icon: 'none' })
     })
@@ -148,6 +148,12 @@ export default function ReportPage() {
       </PageShell>
     )
   }
+
+  const sourceByRef: Record<string, (typeof report.sources)[number]> = {}
+  report.sources.forEach((source) => {
+    if (source.ref) sourceByRef[source.ref] = source
+    if (source.url) sourceByRef[source.url] = source
+  })
 
   const tone = scoreTone(report.score)
   const typeEntries = Object.keys(report.by_type).map((label) => ({
@@ -293,11 +299,24 @@ export default function ReportPage() {
                     {item.source_refs.length > 0 && (
                       <View className='answer-block'>
                         <Text className='answer-label'>来源</Text>
-                        {item.source_refs.map((url) => (
-                          <Text key={url} className='source-link' onClick={() => copySource(url)}>
-                            {url}
-                          </Text>
-                        ))}
+                        {item.source_refs.map((ref) => {
+                          const matched = sourceByRef[ref]
+                          const isKb = ref.startsWith('kb://')
+                          const label = isKb
+                            ? `知识库 · ${matched?.title || '资料片段'}`
+                            : matched?.title || ref
+                          return (
+                            <Text
+                              key={ref}
+                              className={`source-link ${isKb ? 'kb' : ''}`}
+                              onClick={() => {
+                                if (!isKb) copySource(ref)
+                              }}
+                            >
+                              {label}
+                            </Text>
+                          )
+                        })}
                       </View>
                     )}
                   </View>
@@ -310,15 +329,27 @@ export default function ReportPage() {
         {report.sources.length > 0 && (
           <View className='report-card'>
             <View className='section-title report-card-title'>参考来源</View>
-            {report.sources.map((source, index) => (
-              <View key={`${source.title}-${index}`} className='source-item' onClick={() => copySource(source.url)}>
-                <View className='grow'>
-                  <Text className='source-title'>{source.title || '未命名来源'}</Text>
-                  <Text className='source-site'>{source.site_name || '未知站点'}</Text>
+            {report.sources.map((source, index) => {
+              const isKb = source.kind === 'kb'
+              return (
+                <View
+                  key={`${source.title}-${index}`}
+                  className={`source-item ${isKb ? 'kb' : ''}`}
+                  onClick={() => {
+                    if (!isKb) copySource(source.url)
+                  }}
+                >
+                  <View className='grow'>
+                    <View className='source-top'>
+                      <Text className='source-title'>{source.title || '未命名来源'}</Text>
+                      <Text className={`source-kind ${isKb ? 'kb' : ''}`}>{isKb ? '知识库' : '网页'}</Text>
+                    </View>
+                    <Text className='source-site'>{source.site_name || '未知站点'}</Text>
+                  </View>
+                  {isKb ? null : <Icon name='copy-ink3' size={16} />}
                 </View>
-                <Icon name='copy-ink3' size={16} />
-              </View>
-            ))}
+              )
+            })}
           </View>
         )}
 

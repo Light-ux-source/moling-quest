@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -79,6 +80,18 @@ def _question_nodes(
             }
         )
     return nodes
+
+
+def _kb_count(value: Any) -> int:
+    if isinstance(value, list):
+        return len(value)
+    if not value:
+        return 0
+    try:
+        parsed = json.loads(value)
+        return len(parsed) if isinstance(parsed, list) else 0
+    except (TypeError, ValueError):
+        return 0
 
 
 def build_chapter_detail(chapter_id: str) -> Optional[Dict[str, Any]]:
@@ -169,6 +182,8 @@ def build_chapter_detail(chapter_id: str) -> Optional[Dict[str, Any]]:
         "nodes": nodes,
         "comprehensive": comprehensive_node,
         "sources": session.get("sources") or [],
+        "kb_ids": session.get("kb_ids") or [],
+        "source_mode": session.get("source_mode") or "model",
         "created_at": chapter.get("created_at"),
         "completed_at": chapter.get("completed_at") or session.get("completed_at"),
     }
@@ -191,6 +206,8 @@ def build_chapter_summary(chapter: Dict[str, Any]) -> Dict[str, Any]:
             "exp": int(chapter.get("exp") or 0),
             "progress": {"done": 0, "total": 0},
             "next_title": "",
+            "kb_count": _kb_count(chapter.get("session_kb_ids")),
+            "source_mode": chapter.get("session_source_mode") or "model",
             "created_at": chapter.get("created_at"),
             "completed_at": chapter.get("completed_at"),
         }
@@ -210,6 +227,8 @@ def build_chapter_summary(chapter: Dict[str, Any]) -> Dict[str, Any]:
         "exp": detail["exp"],
         "progress": detail["progress"],
         "next_title": next_node["title"] if next_node else "",
+        "kb_count": len(detail.get("kb_ids") or []),
+        "source_mode": detail.get("source_mode") or "model",
         "created_at": detail["created_at"],
         "completed_at": detail["completed_at"],
     }

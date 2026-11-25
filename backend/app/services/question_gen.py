@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -11,9 +12,17 @@ from .. import db
 from ..config import get_settings
 from ..llm import LLMError, get_llm
 from ..prompts import LEVEL_GUIDE, TYPE_RULES
+from ..rag.retriever import (
+    RagError,
+    build_source_items,
+    format_kb_evidence,
+    format_web_evidence,
+    retrieve,
+)
 from ..schemas import TYPE_LABELS, QuestionFull
 from ..search import get_search
 from ..utils import letters as _letters
+from . import kb as kb_service
 from .quota import refund_failure
 
 logger = logging.getLogger(__name__)
@@ -83,10 +92,17 @@ def normalize_question(
     rubric = raw.get("rubric") or []
     rubric_list = [str(r).strip() for r in rubric if str(r).strip()][:6] if isinstance(rubric, (list, tuple)) else []
 
-    allowed = {u for u in allowed_urls if u}
+    allowed_list = [str(u).strip() for u in allowed_urls if str(u).strip()]
+    allowed = set(allowed_list)
     refs = []
-    for ref in raw.get("source_refs") or []:
-        ref = str(ref).strip()
+    for raw_ref in raw.get("source_refs") or []:
+        ref = str(raw_ref).strip()
+        # 模型有时会输出 [K1]/K1；按证据顺序映射回真实 ref，避免引用被白名单丢弃
+        match = re.fullmatch(r"\[?K(\d+)\]?", ref, flags=re.IGNORECASE)
+        if match:
+            index = int(match.group(1)) - 1
+            if 0 <= index < len(allowed_list):
+                ref = allowed_list[index]
         if ref and ref in allowed and ref not in refs:
             refs.append(ref)
 
@@ -172,19 +188,47 @@ def _format_source_text(sources: List[Any]) -> str:
     ) or "（本次没有检索到外部资料，请基于你已有的可靠知识作答，并在 evidence 中标注「模型知识」。）"
 
 
-async def build_knowledge_brief(topic: str, level: str, sources: List[Any]) -> Dict[str, Any]:
+async def build_knowledge_brief(
+    topic: str,
+    level: str,
+    sources: List[Any],
+    *,
+    kb_pack: Any = None,
+    kb_titles: str = "",
+) -> Dict[str, Any]:
     llm = get_llm()
-    result = await llm.run(
-        "digest",
-        {
+    if kb_pack is not None and getattr(kb_pack, "chunks", None):
+        variables = {
             "topic": topic,
             "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
-            "source_text": _format_source_text(sources),
-        },
-        context={"topic": topic, "sources": [s.model_dump() for s in sources]},
-        temperature=0.2,
-        max_tokens=1600,
-    )
+            "kb_titles": kb_titles or "（用户知识库）",
+            "kb_evidence": format_kb_evidence(kb_pack.chunks),
+            "web_evidence": format_web_evidence(getattr(kb_pack, "web_sources", []) or []),
+        }
+        context = {
+            "topic": topic,
+            "sources": [s.model_dump() for s in sources],
+            "evidence_refs": list(getattr(kb_pack, "allowed_refs", []) or []),
+        }
+        result = await llm.run(
+            "rag_digest",
+            variables,
+            context=context,
+            temperature=0.2,
+            max_tokens=2000,
+        )
+    else:
+        result = await llm.run(
+            "digest",
+            {
+                "topic": topic,
+                "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
+                "source_text": _format_source_text(sources),
+            },
+            context={"topic": topic, "sources": [s.model_dump() for s in sources]},
+            temperature=0.2,
+            max_tokens=1600,
+        )
     return {"data": result.data, "usage": result}
 
 
@@ -202,12 +246,46 @@ async def generate_for_session(session_id: str) -> None:
 
     try:
         db.update_session(session_id, status="searching", stage="searching", progress=12)
-        sources = []
-        if settings.enable_web_search:
-            try:
-                sources = await get_search().search_many(topic, per_query=4)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("检索失败，降级为纯模型知识: %s", exc)
+        sources: List[Any] = []
+        kb_pack = None
+        use_kb = False
+        kb_titles = ""
+        allowed_refs: List[str] = []
+        kb_ids = list(session.get("kb_ids") or [])
+        source_mode = session.get("source_mode") or "model"
+
+        if kb_ids and source_mode in {"kb_only", "hybrid"}:
+            kb_names = kb_service.names_for(kb_ids)
+            kb_titles = "、".join(kb_names.values()) or "用户知识库"
+            kb_pack = await retrieve(
+                topic,
+                kb_ids,
+                source_mode,
+                settings=settings,
+                lexical_search=db.search_kb_chunks_lexical,
+                kb_titles=list(kb_names.values()),
+                doc_titles=kb_service.doc_titles_for(kb_ids),
+            )
+            sources = build_source_items(kb_pack, kb_names)
+            db.update_session(
+                session_id,
+                sources=[s.model_dump() for s in sources],
+                retrieval_trace=kb_pack.trace,
+            )
+            use_kb = bool(kb_pack.chunks)
+            if not use_kb and source_mode == "kb_only":
+                raise RagError(
+                    "资料库里没有检索到与这个主题相关的内容。可以换一个更具体的说法，或先补充资料。"
+                )
+
+        if not use_kb and kb_pack is None:
+            sources = []
+            if settings.enable_web_search:
+                try:
+                    sources = await get_search().search_many(topic, per_query=4)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("检索失败，降级为纯模型知识: %s", exc)
+
         db.update_session(
             session_id,
             status="digesting",
@@ -217,7 +295,13 @@ async def generate_for_session(session_id: str) -> None:
         )
 
         llm = get_llm()
-        brief_result = await build_knowledge_brief(topic, level, sources)
+        brief_result = await build_knowledge_brief(
+            topic,
+            level,
+            sources,
+            kb_pack=kb_pack if use_kb else None,
+            kb_titles=kb_titles,
+        )
         brief = brief_result["data"]
         usage = brief_result["usage"]
         db.add_usage(session_id, usage.tokens_in, usage.tokens_out, usage.cost_cny)
@@ -238,8 +322,28 @@ async def generate_for_session(session_id: str) -> None:
             type_mix_note = "本组只生成客观题，不要生成简答题"
         else:
             type_mix_note = "本组只生成简答题，不要生成客观题"
-        source_urls = [s.url for s in sources if s.url]
-        url_hint = "、".join(source_urls[:5]) if source_urls else "（无可用链接，source_refs 留空数组）"
+
+        if use_kb and kb_pack is not None:
+            allowed_refs = list(kb_pack.allowed_refs)
+            allowed_refs.extend(
+                source.url for source in sources if source.kind == "web" and source.url
+            )
+            ref_hint = (
+                "、".join(allowed_refs[:10])
+                if allowed_refs
+                else "（无可用 ref，source_refs 留空数组）"
+            )
+            gen_task = "rag_generate"
+        else:
+            allowed_refs = [source.url for source in sources if source.url]
+            ref_hint = ""
+            gen_task = "generate"
+        url_hint = (
+            "、".join(allowed_refs[:5])
+            if allowed_refs
+            else "（无可用链接，source_refs 留空数组）"
+        )
+
         # 真实网关单次输出约 4k tokens，15 题会被截断；按 5 题分批生成再合并去重。
         batch_size = max(1, int(settings.question_generate_batch_size))
         batch_total = (count + batch_size - 1) // batch_size
@@ -256,29 +360,35 @@ async def generate_for_session(session_id: str) -> None:
                 f"本批只输出 {chunk} 题。请围绕提纲中不同知识点出题，"
                 "避免与前面批次重复；不要因为篇幅省略题目。"
             )
+            variables = {
+                "topic": topic,
+                "count": chunk,
+                "batch_note": batch_note,
+                "type_mix_note": type_mix_note,
+                "avoid_stems": avoid_stems,
+                "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
+                "type_desc": type_desc,
+                "type_rules": TYPE_RULES,
+                "brief_json": json.dumps(brief, ensure_ascii=False, indent=2),
+                "url_hint": url_hint,
+            }
+            if use_kb and kb_pack is not None:
+                variables["kb_evidence"] = format_kb_evidence(kb_pack.chunks)
+                variables["ref_hint"] = ref_hint
+            context = {
+                "topic": topic,
+                "count": chunk,
+                "seq_offset": offset,
+                "batch_index": batch_index,
+                "batch_total": batch_total,
+                "types": allowed_types,
+                "brief": brief,
+                "allowed_refs": allowed_refs,
+            }
             gen_result = await llm.run(
-                "generate",
-                {
-                    "topic": topic,
-                    "count": chunk,
-                    "batch_note": batch_note,
-                    "type_mix_note": type_mix_note,
-                    "avoid_stems": avoid_stems,
-                    "level_guide": LEVEL_GUIDE.get(level, LEVEL_GUIDE["basic"]),
-                    "type_desc": type_desc,
-                    "type_rules": TYPE_RULES,
-                    "brief_json": json.dumps(brief, ensure_ascii=False, indent=2),
-                    "url_hint": url_hint,
-                },
-                context={
-                    "topic": topic,
-                    "count": chunk,
-                    "seq_offset": offset,
-                    "batch_index": batch_index,
-                    "batch_total": batch_total,
-                    "types": allowed_types,
-                    "brief": brief,
-                },
+                gen_task,
+                variables,
+                context=context,
                 temperature=0.7,
                 max_tokens=max(4000, min(16000, chunk * 800)),
             )
@@ -308,7 +418,7 @@ async def generate_for_session(session_id: str) -> None:
             session_id=session_id,
             count=count,
             allowed_types=allowed_types,
-            allowed_urls=[s.url for s in sources],
+            allowed_urls=allowed_refs,
         )
         db.insert_questions(session_id, questions)
         db.update_session(
@@ -333,6 +443,8 @@ async def generate_for_session(session_id: str) -> None:
 
 def _friendly_error(exc: Exception) -> str:
     message = str(exc)
+    if isinstance(exc, RagError):
+        return message[:240]
     if isinstance(exc, LLMError):
         if "余额不足" in message or "API Key 无效" in message:
             return message

@@ -73,6 +73,12 @@ class SourceItem(BaseModel):
     url: str = ""
     site_name: Optional[str] = None
     summary: str = ""
+    # 多数据源：web = 联网检索，kb = 用户知识库片段
+    kind: str = "web"
+    ref: str = ""
+    kb_id: str = ""
+    doc_id: str = ""
+    locator: str = ""
 
 
 class SessionCreate(BaseModel):
@@ -81,6 +87,9 @@ class SessionCreate(BaseModel):
     question_count: int = Field(default=5, ge=3, le=15)
     types: Optional[List[QuestionType]] = None
     kind: Literal["standard", "daily"] = "standard"
+    kb_ids: List[str] = Field(default_factory=list, description="选中的知识库 ID，最多 3 个")
+    # model: 保持现状；kb_only: 只读知识库；hybrid: 知识库优先 + 联网补充
+    source_mode: Literal["model", "kb_only", "hybrid"] = "model"
 
     @field_validator("topic")
     @classmethod
@@ -89,6 +98,31 @@ class SessionCreate(BaseModel):
         if len(cleaned) < 2:
             raise ValueError("学习主题至少需要 2 个字符")
         return cleaned
+
+    @field_validator("kb_ids")
+    @classmethod
+    def _clean_kb_ids(cls, values: List[str]) -> List[str]:
+        cleaned: List[str] = []
+        for value in values or []:
+            item = str(value or "").strip()
+            if not item:
+                continue
+            if not item.startswith("kb_") or len(item) > 64:
+                raise ValueError("知识库 ID 格式不正确")
+            if item not in cleaned:
+                cleaned.append(item)
+        if len(cleaned) > 3:
+            raise ValueError("一次最多选择 3 个知识库")
+        return cleaned
+
+
+class RetrievalInfo(BaseModel):
+    mode: str = "model"
+    rounds: int = 0
+    queries: List[str] = Field(default_factory=list)
+    chunks: int = 0
+    web_sources: int = 0
+    fallback: bool = False
 
 
 class SessionDetail(BaseModel):
@@ -109,6 +143,9 @@ class SessionDetail(BaseModel):
     sources: List[SourceItem] = Field(default_factory=list)
     answered_count: int = 0
     model: Optional[str] = None
+    kb_ids: List[str] = Field(default_factory=list)
+    source_mode: str = "model"
+    retrieval: Optional[RetrievalInfo] = None
     created_at: str
     updated_at: str
 
@@ -174,6 +211,115 @@ class HealthResponse(BaseModel):
     auth: str = "wechat"
     wechat_login: bool = False
     dev_login: bool = False
+    embedding: str = "none"
+    embedding_model: str = ""
+    vector_store: str = "none"
+    rag: bool = False
+    kb_enabled: bool = True
+
+
+class KbLimits(BaseModel):
+    max_kbs: int = 5
+    used_kbs: int = 0
+    remaining_kbs: int = 5
+    max_docs_per_kb: int = 30
+    max_file_bytes: int = 20 * 1024 * 1024
+    max_text_chars: int = 200_000
+    max_session_kbs: int = 3
+    can_create: bool = True
+
+
+class KbSummary(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    doc_count: int = 0
+    chunk_count: int = 0
+    char_count: int = 0
+    status: str = "active"
+    is_guest: bool = True
+    created_at: str
+    updated_at: str
+
+
+class KbDocumentPublic(BaseModel):
+    id: str
+    kb_id: str
+    kind: str = "file"
+    title: str
+    source_url: Optional[str] = None
+    filename: Optional[str] = None
+    mime: Optional[str] = None
+    size_bytes: int = 0
+    status: str = "queued"
+    progress: int = 0
+    error: Optional[str] = None
+    char_count: int = 0
+    chunk_count: int = 0
+    created_at: str
+    updated_at: str
+    completed_at: Optional[str] = None
+
+
+class KbDocumentListResponse(BaseModel):
+    items: List[KbDocumentPublic] = Field(default_factory=list)
+
+
+class KbDetail(KbSummary):
+    documents: List[KbDocumentPublic] = Field(default_factory=list)
+    limits: KbLimits = Field(default_factory=KbLimits)
+
+
+class KbListResponse(BaseModel):
+    items: List[KbSummary] = Field(default_factory=list)
+    limits: KbLimits = Field(default_factory=KbLimits)
+
+
+class KbCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=40)
+    description: Optional[str] = Field(default=None, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, v: str) -> str:
+        cleaned = " ".join(v.replace("\u3000", " ").split())
+        if not cleaned:
+            raise ValueError("资料库名称不能为空")
+        return cleaned
+
+
+class KbUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    description: Optional[str] = Field(default=None, max_length=120)
+
+
+class KbUrlCreate(BaseModel):
+    url: str = Field(..., min_length=8, max_length=2048)
+    title: Optional[str] = Field(default=None, max_length=200)
+
+
+class KbTextCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    text: str = Field(..., min_length=1, max_length=200_000)
+
+
+class KbSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=500)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class KbSearchHit(BaseModel):
+    chunk_id: str
+    doc_id: str
+    doc_title: str = ""
+    locator: str = ""
+    content: str = ""
+    score: float = 0.0
+
+
+class KbSearchResponse(BaseModel):
+    query: str
+    items: List[KbSearchHit] = Field(default_factory=list)
 
 class ProgressUpdate(BaseModel):
     current_seq: int = Field(..., ge=1, le=50)
@@ -216,6 +362,8 @@ class ChapterDetail(BaseModel):
     nodes: List[ChapterNode] = Field(default_factory=list)
     comprehensive: Optional[ChapterNode] = None
     sources: List[SourceItem] = Field(default_factory=list)
+    kb_ids: List[str] = Field(default_factory=list)
+    source_mode: str = "model"
     created_at: str
     completed_at: Optional[str] = None
 
@@ -234,6 +382,8 @@ class ChapterSummary(BaseModel):
     exp: int = 0
     progress: ChapterProgress
     next_title: str = ""
+    kb_count: int = 0
+    source_mode: str = "model"
     created_at: str
     completed_at: Optional[str] = None
 

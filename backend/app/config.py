@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "learn-with-ai"
-    app_version: str = "0.3.0"
+    app_version: str = "0.4.0"
     env: str = "dev"
 
     # ---- LLM ----
@@ -84,6 +84,45 @@ class Settings(BaseSettings):
     avatar_upload_dir: str = "./data/uploads/avatars"
     avatar_max_bytes: int = 2 * 1024 * 1024
 
+    # ---- 知识库 / RAG ----
+    kb_enabled: bool = True
+    kb_max_per_user: int = 5
+    kb_max_per_guest: int = 1
+    kb_max_docs_per_kb: int = 30
+    kb_max_file_bytes: int = 20 * 1024 * 1024
+    kb_max_text_chars: int = 200_000
+    kb_max_pages: int = 300
+    kb_max_url_bytes: int = 5 * 1024 * 1024
+    kb_upload_dir: str = "./data/uploads/kb"
+    kb_upload_per_hour: int = 60
+    kb_create_per_hour: int = 20
+    kb_max_session_kbs: int = 3
+    kb_chunk_size: int = 600
+    kb_chunk_overlap: int = 80
+    kb_retrieve_top_k: int = 8
+    kb_retrieve_candidates: int = 16
+    kb_evidence_max_chars: int = 6000
+    rag_max_rounds: int = 2
+
+    # ---- Embedding（OpenAI 兼容）----
+    # auto: 真实模式且有 Key 用网关；否则 mock（哈希向量，离线演示）
+    # openai: 强制真实；mock: 强制哈希；none: 关闭知识库向量化
+    embedding_provider: str = "auto"
+    embedding_base_url: str = ""
+    embedding_api_key: str = ""
+    embedding_model: str = "qwen3.7-text-embedding-flash"
+    embedding_dim: int = 1024
+    embedding_batch_size: int = 16
+    embedding_timeout: float = 30.0
+
+    # ---- Qdrant ----
+    # 留空 QDRANT_URL 时使用嵌入式 local mode；生产可切服务端。
+    qdrant_url: str = ""
+    qdrant_api_key: str = ""
+    qdrant_local_path: str = "./data/qdrant"
+    qdrant_collection: str = "kb_chunks_v1"
+    qdrant_timeout: float = 30.0
+
     # ---- 业务限制 ----
     max_topic_chars: int = 200
     min_question_count: int = 3
@@ -133,6 +172,44 @@ class Settings(BaseSettings):
     @property
     def web_search_available(self) -> bool:
         return (not self.is_mock) and self.effective_search_provider != "none"
+
+    @property
+    def embedding_api_key_effective(self) -> str:
+        return (self.embedding_api_key or self.deepseek_api_key or "").strip()
+
+    @property
+    def embedding_base_url_effective(self) -> str:
+        return (self.embedding_base_url or self.deepseek_base_url or "").rstrip("/")
+
+    @property
+    def effective_embedding_provider(self) -> str:
+        """解析实际可用的向量化来源；显式 openai 无 Key 时不静默降级。"""
+        if not self.kb_enabled:
+            return "none"
+        provider = (self.embedding_provider or "auto").strip().lower()
+        if provider in {"none", "off", "disabled"}:
+            return "none"
+        if provider == "mock":
+            return "mock"
+        if provider in {"openai", "api", "openai_compatible", "compatible"}:
+            return "openai" if self.embedding_api_key_effective else "none"
+        # auto：真实模式下有 Key 才走网关；Mock 模式/无 Key 走哈希，保证离线可跑
+        if self.is_mock or not self.embedding_api_key_effective:
+            return "mock"
+        return "openai"
+
+    @property
+    def rag_available(self) -> bool:
+        return self.kb_enabled and self.effective_embedding_provider != "none"
+
+    @property
+    def vector_store_mode(self) -> str:
+        if not self.rag_available:
+            return "none"
+        return "qdrant-server" if self.qdrant_url.strip() else "qdrant-local"
+
+    def kb_limit_for(self, is_guest: bool) -> int:
+        return self.kb_max_per_guest if is_guest else self.kb_max_per_user
 
     @property
     def wechat_login_configured(self) -> bool:

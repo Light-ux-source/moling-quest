@@ -40,3 +40,4 @@ miniapp/.demo-seed.json
 # 本地开发 MySQL 实例与头像上传
 backend/.mysql/
 backend/data/uploads/
+backend/data/qdrant/

@@ -303,3 +303,20 @@ backend/.venv/bin/python -c "import pymysql, cryptography; print('ok')"
 ### 9.8 注销后还能用原数据吗
 
 不能。注销会撤销令牌、删除昵称/头像/openid 绑定，学习记录匿名化保留统计；重新微信登录视为新账号。
+
+---
+
+## 知识库 / RAG（v0.4.0）
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| `/health.rag=false` | `KB_ENABLED=false` 或 `EMBEDDING_PROVIDER=none/openai` 但无 Key | 检查 `KB_ENABLED`、`EMBEDDING_API_KEY`/`DEEPSEEK_API_KEY`；`auto` 无 Key 会走 mock |
+| `/health.embedding=mock` | Mock 模式或无 Key | 配真实 Key 并 `EMBEDDING_PROVIDER=auto/openai`；mock 只适合演示 |
+| 上传后一直“解析中” | 大文件/网页慢；后台任务异常 | 看后端日志 `资料入库失败`；失败项可重试 |
+| PDF 入库失败“没有提取到文字” | 扫描件无文本层 | 换文字版 PDF 或粘贴文本；OCR 未实现 |
+| `向量集合维度...不一致` | 换了 embedding 模型/维度 | 换 `QDRANT_COLLECTION` 或清空 `data/qdrant` 后重新入库 |
+| 资料库为空/选库造关 409 | 没有 ready 片段 | 等资料 ready；或先上传/重试 |
+| `kb_only` 会话 failed“没有检索到” | 主题与资料不相关 | 换更具体的主题、补资料，或切“资料库+联网” |
+| H5 上传被 CORS 拦截 | `Taro.uploadFile` 默认带凭据 + 后端 `*` | 已设 `withCredentials:false`；确认重新构建 H5 |
+| 选库出题没有“知识库”来源 | 模型未引用/白名单清空 | 看 `sources` 是否有 `kind=kb`；检查 `rag_generate` Prompt 与 `ref_hint` |
+| 多实例下向量写入报错 | Qdrant local mode 单进程 | 配 `QDRANT_URL` 服务端 |

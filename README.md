@@ -4,7 +4,7 @@
 >
 > 把「枯燥的被动阅读」变成「有反馈的主动回忆」。
 
-[![Tests](https://img.shields.io/badge/tests-73%20passed-3E6650)](#测试)
+[![Tests](https://img.shields.io/badge/tests-189%20passed-3E6650)](#测试)
 [![UI](https://img.shields.io/badge/UI-S01--S11%20implemented-C98A2E)](#界面)
 [![Taro](https://img.shields.io/badge/Taro-4.3.2-3E6650)](https://docs.taro.zone/docs/GETTING-STARTED)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-3E6650)](https://docs.langchain.com/oss/python/integrations/chat/deepseek)
@@ -17,12 +17,13 @@
 | --- | --- |
 | 核心链路 | ✅ 输入 → 检索 → 出题 → 答题 → 结算 → 报告 |
 | 小程序端 | ✅ **S01–S08 + S11 个人中心/记录/设置/登录已落地** |
-| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/账号/配额/个人中心/Tavily 联网检索，pytest **86 passed** |
+| 后端 | ✅ 章节/进度/结算/日挑战/章末综合/重试/账号/配额/个人中心/Tavily 联网/知识库 RAG，pytest **189 passed** |
 | AI 编排 | ✅ LangChain 0.3.x（LCEL + ChatDeepSeek），Mock/真实同构 |
-| 真实模型 | ✅ 阿里云 MaaS OpenAI 兼容网关（`deepseek-v4.1-flash-1017`）+ **Tavily Search API** 已跑通真实 E2E：3 题 ready、6 条真实来源、逐题 `source_refs` 非空；来源注入出题 Prompt 并在预览/报告展示 |
+| 真实模型 | ✅ 阿里云 MaaS `deepseek-v4.1-flash-1017` + Tavily + `qwen3.7-text-embedding-flash` 已跑通真实 E2E：知识库 3 片段、3 题 ready、逐题 `source_refs` 为 `kb://` |
+| 知识库 RAG | ✅ 文档/网页/文本入库、Qdrant、Agentic RAG、kb_only/hybrid、来源可追溯；详见 [22](docs/22-知识库与RAG实现.md) |
 | 账号与数据 | ✅ 微信登录/体验登录、游客 1 组试用、3 组/日、昵称头像、积分、学习记录、注销；**MySQL 8+/9** |
 | 微信配置 | ✅ AppID/AppSecret 已填写并加载，`/health.wechat_login=true`；真实 `wx.login` code 待真机走查 |
-| 上线合规 | ⏳ S09–S13、真实 wx.login/真机、内容审核、备案待做 |
+| 上线合规 | ⏳ S09–S13、真实 wx.login/真机、视频 ASR/OCR、内容审核、备案待做 |
 
 ## 界面
 
@@ -41,6 +42,10 @@
 | 个人中心 | 学习记录 | 设置 |
 | --- | --- | --- |
 | ![个人中心](shots/profile.png) | ![学习记录](shots/records.png) | ![设置](shots/settings.png) |
+
+| 资料库 | 选库出题 |
+| --- | --- |
+| ![资料库](shots/e2e-kb-list.png) | ![知识库出题](shots/e2e-kb-preview.png) |
 
 完整报告：[shots/report-full.png](shots/report-full.png)。
 
@@ -81,6 +86,8 @@ TAVILY_API_KEY=tvly-xxxxxxxx
 > 如果使用第三方 OpenAI 兼容网关（如阿里云 MaaS），Base URL 通常要写到 `/compatible-mode/v1`，模型名用网关提供的 ID（例如 `deepseek-v4.1-flash-1017`）；这类网关通常没有 DeepSeek 官方 Search API，联网检索由 **Tavily** 提供，与 Chat 网关解耦。Tavily Key 只放后端 `.env`，不要写进小程序。
 >
 > 没有 Tavily Key 时，可显式设 `SEARCH_PROVIDER=tavily` + `TAVILY_ALLOW_KEYLESS=true` 使用免费的 keyless 模式（限流，适合本地演示）；生产建议配置正式 Key。`SEARCH_PROVIDER=auto` 只在配置了 Tavily Key 时自动启用 Tavily，避免无 Key 环境偷偷联网。
+>
+> 知识库默认复用 `DEEPSEEK_*` 的 Base URL/Key 调用 `qwen3.7-text-embedding-flash`，Qdrant 使用 `backend/data/qdrant` 嵌入式模式；无 Key/Mock 时降级为哈希向量。完整配置见 [`backend/.env.example`](backend/.env.example) 与 [22-知识库与RAG实现](docs/22-知识库与RAG实现.md)。
 
 ### 2. 启动小程序端
 
@@ -136,8 +143,9 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | 找术语/文件 | [17-术语表与索引](docs/17-术语表与索引.md) |
 | 看最终运行状态 | [20-最终交付与运行状态](docs/20-最终交付与运行状态.md) |
 | 改/排查联网搜索 | [21-联网搜索实现与验收](docs/21-联网搜索实现与验收.md) |
+| 改/排查知识库 RAG | [22-知识库与RAG实现](docs/22-知识库与RAG实现.md) |
 
-完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [用户系统需求](docs/18-用户系统需求分析.md) · [用户系统实现](docs/19-用户系统实现与验收.md) · [最终运行状态](docs/20-最终交付与运行状态.md) · [联网搜索](docs/21-联网搜索实现与验收.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
+完整清单：[需求规格](docs/01-需求规格说明书.md) · [UI 规范](docs/02-UI设计规范.md) · [页面说明](docs/03-页面设计说明.md) · [ADR](docs/04-ADR决策记录.md) · [测试报告](docs/05-测试与验收报告.md) · [协作发布](docs/06-协作与发布指南.md) · [技术核实](docs/07-技术核实.md) · [架构](docs/08-系统架构与代码地图.md) · [API](docs/09-API接口手册.md) · [数据模型](docs/10-数据模型与迁移.md) · [前端](docs/11-前端实现指南.md) · [AI](docs/12-AI工程与Prompt手册.md) · [测试](docs/13-测试手册.md) · [部署](docs/14-部署与运维手册.md) · [FAQ](docs/15-故障排查与FAQ.md) · [路线图](docs/16-路线图与待办.md) · [术语](docs/17-术语表与索引.md) · [用户系统需求](docs/18-用户系统需求分析.md) · [用户系统实现](docs/19-用户系统实现与验收.md) · [最终运行状态](docs/20-最终交付与运行状态.md) · [联网搜索](docs/21-联网搜索实现与验收.md) · [知识库RAG](docs/22-知识库与RAG实现.md) · [方案设计](方案设计文档.md) · [CHANGELOG](CHANGELOG.md)。
 
 ## 技术栈
 
@@ -148,6 +156,7 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 | AI | DeepSeek `deepseek-v4.1-flash-1017`（JSON Output，默认关闭思考；15 题分批生成） |
 | Prompt 编排 | LangChain 0.3.x（`ChatPromptTemplate` + LCEL + `ChatDeepSeek`） |
 | 检索 | Tavily Search API（`POST /search`，`search_depth=basic`，6 条结果）；保留 DeepSeek 官方 Search 适配 |
+| 知识库 | Qdrant 1.16.1（本地嵌入式）+ `qwen3.7-text-embedding-flash`（1024 维）+ Agentic RAG |
 | 存储 | **MySQL 8+/9**（PyMySQL，utf8mb4），仓储层隔离 |
 | 测试 | pytest + Playwright（H5 E2E / 截图） |
 
@@ -159,7 +168,7 @@ TARO_APP_API_BASE=https://api.your-domain.com npm run build:weapp
 # 环境变量模板校验（确保无真实密钥、必需项齐全）
 python3 scripts/check_env_example.py
 
-# 后端单测 + 接口测试（86 个用例，Mock 模式；含微信 code2Session 请求形状、注销冷却、15 题上限与 Tavily 检索测试）
+# 后端单测 + 接口测试（189 个用例，Mock 模式；含 RAG 解析/切片/向量/检索/知识库/会话集成）
 cd backend && .venv/bin/python -m pytest -q
 
 # 前端类型检查与构建
@@ -174,7 +183,7 @@ node scripts/e2e.js
 node scripts/screenshot.js
 ```
 
-当前基线：**86 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（含游客→体验登录→个人中心→记录→造关→答题→结算→报告；0 错误、0 4xx、375/390/768 无横向溢出）**。
+当前基线：**189 passed / tsc 通过 / weapp+h5 构建通过 / H5 E2E PASS（含游客→体验登录→个人中心→记录→造关→答题→结算→报告→资料库上传→选库出题；0 错误、0 4xx、375/390/768 无横向溢出）**。
 
 真实模型单组实测（2026-11-09，阿里云 MaaS `deepseek-v4.1-flash-1017`）：tokens 约 2.9k in / 2.1k out（实测 2871/2072、2996/2176），估算成本 **¥0.022–0.023**；从创建到完成 15–20s（含作答），批改/报告约 3s。15 题实测：按 5 题一批共 3 批，34–38 秒生成满 15 题。联网检索由 Tavily 提供（2026-11 核实：`POST https://api.tavily.com/search`，Bearer 鉴权，`results[].content` 作为摘要注入 digest），会额外增加约 1 次搜索请求与少量 Prompt token。
 
@@ -183,10 +192,11 @@ node scripts/screenshot.js
 ```
 backend/            FastAPI：LangChain → 检索 → 提纲 → 出题 → 判分 → 报告
   app/chains/       Prompt 模板、ChatDeepSeek/MockChatModel、LCEL、解析
-  app/services/     question_gen / grading / reporting / chapters / settlement / auth / quota
-  tests/            pytest（73）
+  app/rag/          分块、解析、embedding、Qdrant、Agentic 检索
+  app/services/     question_gen / grading / reporting / chapters / settlement / auth / quota / kb / ingest
+  tests/            pytest（189）
 miniapp/            Taro 小程序 / H5
-  src/pages/        S01–S08 + S11 个人中心 / 记录 / 设置 / 关于
+  src/pages/        S01–S08 + S11 个人中心 / 记录 / 设置 / 关于 / 资料库
   src/components/   设计系统组件
   src/styles/       tokens / components / noise
   src/assets/       SVG 图标、墨团、地图路径（gen_assets.py 生成）
@@ -208,6 +218,7 @@ shots/              S01–S08 验收截图
 - S08 预览：章节卡、题目列表、来源、重新生成、开始闯关
 - 后端：章节/进度/结算/日挑战/章末综合/失败重试/个人统计
 - **用户系统**：微信一键登录（首次自动注册）/体验登录、登录态与退出、游客 1 组试用、登录 3 组/日、游客数据迁移、头像昵称填写、积分、学习记录列表、设置/隐私/注销（24h 冷却）
+- **知识库 RAG**：资料库 CRUD、PDF/Word/PPT/Excel/TXT/MD/网页/文本入库、Qdrant 向量、Agentic RAG（规划/多查询/融合/充分性/改写）、kb_only/hybrid、逐题 `kb://` 引用、失败重试、注销清理
 - **MySQL 8+/9**（PyMySQL）；`users/auth_tokens/user_settings/guest_trials` 等表；越权访问 404
 - LangChain 0.3.x 编排四条 Prompt 链；JSON mode、思考开关、空 content 重试
 - Mock/真实双模式、客户端隔离、限流、账号隔离
@@ -216,7 +227,7 @@ shots/              S01–S08 验收截图
 
 - S09 错题本、S10 成就、S12 分享、S13 排行榜（P1/P2）
 - 真实 `wx.login` code / 微信真机登录与头像昵称填写走查（代码已实现，AppID/AppSecret 已配置）
-- `msgSecCheck` 内容审核、备案、小程序码、多轮追问、指定信息源
+- `msgSecCheck` 内容审核、备案、小程序码、多轮追问、视频 ASR/扫描件 OCR
 
 ## 注意
 

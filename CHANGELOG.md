@@ -2,6 +2,29 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与语义化版本。
 
+## [0.4.0] - 2026-11-25
+
+### 新增
+- **知识库 RAG**：用户可建独立资料库，上传 PDF/DOCX/PPTX/XLSX/TXT/MD/HTML 或添加网页/粘贴文本；后台解析、中文切片、向量化（Qdrant 1.16.1 本地模式）并入库
+- **Agentic RAG**：出题前 `rag_plan` 规划查询 → 多查询向量检索 → RRF 融合 → `rag_evaluate` 充分性判断 → 改写重检（≤2 轮）→ 证据包；失败可用 MySQL 词法检索降级
+- **多数据源**：`POST /sessions` 新增 `kb_ids` 与 `source_mode=model|kb_only|hybrid`；`kb_only` 只读知识库，`hybrid` 知识库优先 + Tavily 联网；不传 `kb_ids` 完全走原链路
+- **真实 embedding**：网关 `qwen3.7-text-embedding-flash`（1024 维，复用现有 Key）；无 Key/Mock 时降级为确定性哈希向量
+- **引用可追溯**：题目 `source_refs` 使用 `kb://{doc_id}/chunk/{seq}` 白名单；`SourceItem` 新增 `kind/ref/locator`；预览/报告显示“知识库”徽标与文档/页码
+- **API**：`GET/POST /kb`、`GET/PATCH/DELETE /kb/{id}`、文件/URL/文本入库、状态轮询、失败重试、删除、检索调试（详见 docs/22）
+- **数据表**：`knowledge_bases`、`kb_documents`、`kb_chunks`；`sessions` 新增 `kb_ids/source_mode/retrieval_trace`
+- **前端**：新增 `pages/kb` 列表与 `pages/kb-detail` 详情；造关页新增“出题资料/我的资料库/仅资料库/资料库+联网”；生成中显示命中片段与轮数；个人中心新增“我的资料库”
+- **安全**：网页抓取 SSRF 防护、Office 压缩包安全检查、文件魔数校验、资料隔离、注销彻底删除资料库/文件/向量；Prompt 明确忽略资料中的指令
+- 测试：新增 103 个 RAG/KB 用例，后端 **189 passed**；真实 E2E：DOCX 3 片段、`kb_only` 3 题、10.9s、3/3 题引用；H5 E2E 新增资料库上传→选库→预览来源，主流程仍 PASS
+- 文档：[22-知识库与RAG实现](docs/22-知识库与RAG实现.md)；同步更新 00/07/08/09/10/12/16/README
+
+### 变更
+- 后端版本 `0.3.0 → 0.4.0`；新增依赖 `qdrant-client==1.16.1`、`numpy==2.0.2`、`pypdf==6.21.4`、`python-docx==1.2.0`、`python-pptx==1.0.2`、`openpyxl==3.1.5`、`beautifulsoup4==4.15.0`、`lxml==6.1.3`（Python 3.9 兼容线）
+- `/health` 新增 `embedding/embedding_model/vector_store/rag/kb_enabled`
+- H5 `Taro.uploadFile` 知识库上传显式 `withCredentials=false`，避免后端 CORS `*` 被浏览器拦截
+- 文件/PPT/DOCX 标题优先使用解析出的标题（PDF 元数据 / DOCX 标题 / PPT 标题）
+
+---
+
 ## [Unreleased]
 
 ### 新增
@@ -36,7 +59,8 @@
 - S09–S13：错题本、成就、分享、排行榜
 - 真实微信登录联调（AppSecret）、微信真机验收
 - 内容审核、备案、小程序码
-- 多轮追问、指定信息源（P1）
+- 多轮追问（P1）
+- 视频 ASR、扫描件 OCR（P1）
 
 ## [0.3.0] - 2026-11-10
 

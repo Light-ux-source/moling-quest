@@ -55,6 +55,113 @@ async function layoutReport(page, name) {
   return info
 }
 
+
+async function runKbFlow(page) {
+  await page.goto(WEB + '/#/pages/kb/index', { waitUntil: 'networkidle' })
+  await page.waitForSelector('.kb-title', { timeout: 20000 })
+  await page.waitForTimeout(700)
+  await layoutReport(page, 'kb-list')
+  await page.locator('.page-shell:visible').last().screenshot({
+    path: path.join(OUT, 'e2e-kb-list.png'),
+    animations: 'disabled',
+    timeout: 30000
+  })
+
+  const name = `E2E 资料库 ${Date.now()}`
+  const newChip = page.getByText('新建', { exact: true }).first()
+  if (await newChip.count()) {
+    await newChip.click()
+  } else {
+    await page.getByText('建第一个资料库', { exact: true }).click()
+  }
+  await page.waitForSelector('.kb-create-panel', { timeout: 10000 })
+  await page.locator('.kb-create-panel input').first().fill(name)
+  await page.getByText('创建', { exact: true }).click()
+  await page.waitForURL(/pages\/kb-detail\/index/, { timeout: 20000 })
+  await page.waitForSelector('.kb-action', { timeout: 20000 })
+
+  const sample = path.join(os.tmpdir(), 'lwa-kb-e2e.txt')
+  fs.writeFileSync(
+    sample,
+    [
+      '公司内部缓存规范 v3',
+      '强缓存默认 TTL 为 600 秒，仅允许用于静态资源；禁止对 /api 路径启用强缓存。',
+      '协商缓存必须携带 ETag 或 Last-Modified；资源未变化时返回 304。',
+      '缓存键必须包含租户 ID 与语言，避免跨租户串数据。',
+      '发布新版本时，必须刷新 CDN 并递增静态资源文件名哈希。'
+    ].join('\n\n'),
+    'utf8'
+  )
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.locator('.kb-action').first().click()
+  ])
+  await chooser.setFiles(sample)
+  await page.waitForSelector('.kb-doc-status.ready', { timeout: 120000 })
+  await page.waitForTimeout(800)
+  const docReady = await page.locator('.kb-doc-status.ready').count()
+  console.log('资料库文件已就绪:', docReady)
+  await layoutReport(page, 'kb-detail')
+  await page.locator('.page-shell:visible').last().screenshot({
+    path: path.join(OUT, 'e2e-kb-detail.png'),
+    animations: 'disabled',
+    timeout: 30000
+  })
+
+  await page.goto(WEB + '/#/pages/create/index', { waitUntil: 'networkidle' })
+  await page.waitForSelector('.create-title', { timeout: 20000 })
+  await page.locator('textarea').first().fill('公司内部缓存规范')
+  await page.locator('.chip', { hasText: '我的资料库' }).first().click()
+  await page.waitForSelector('.kb-pick', { timeout: 15000 })
+  const firstKb = page.locator('.kb-pick').first()
+  const firstClass = (await firstKb.getAttribute('class')) || ''
+  if (!firstClass.includes('active')) await firstKb.click()
+  await page.getByText('生成关卡', { exact: true }).click()
+  await page.waitForURL(/pages\/generating\/index/, { timeout: 30000 })
+  await page.waitForURL(/pages\/preview\/index/, { timeout: 150000 })
+  await page.waitForSelector('.preview-source.kb', { timeout: 30000 })
+  const kbSourceCount = await page.locator('.preview-source.kb').count()
+  const sourceKindText = await page.locator('.preview-source.kb').first().innerText()
+  console.log('知识库来源:', kbSourceCount, '|', sourceKindText.replace(/\n/g, ' / ').slice(0, 100))
+  await page.waitForTimeout(700)
+  await layoutReport(page, 'kb-preview')
+  await page.locator('.page-shell:visible').last().screenshot({
+    path: path.join(OUT, 'e2e-kb-preview.png'),
+    animations: 'disabled',
+    timeout: 30000
+  })
+
+  // 清理：通过后端 API 删除本次资料库，避免 E2E 反复运行占满限额
+  const stored = await page.evaluate(() => {
+    const unwrap = (key) => {
+      const raw = localStorage.getItem(key) || ''
+      if (!raw) return ''
+      try {
+        const parsed = JSON.parse(raw)
+        return typeof parsed?.data === 'string' ? parsed.data : raw
+      } catch (err) {
+        return raw
+      }
+    }
+    return { token: unwrap('ml_auth_token'), clientId: unwrap('ml_client_id') }
+  })
+  // 从页面 URL 取不到 kbId 时，从资料库列表中按名称查找
+  const cleanup = await page.evaluate(
+    async ({ name, token, clientId }) => {
+      const base = 'http://127.0.0.1:8000/api/v1'
+      const headers = { 'X-Client-Id': clientId, Authorization: `Bearer ${token}` }
+      const list = await fetch(`${base}/kb`, { headers }).then((r) => r.json())
+      const target = (list.items || []).find((item) => item.name === name)
+      if (!target) return false
+      const res = await fetch(`${base}/kb/${target.id}`, { method: 'DELETE', headers })
+      return res.status === 204
+    },
+    { name, token: stored.token, clientId: stored.clientId }
+  )
+  console.log('资料库清理:', cleanup)
+  return { docReady, kbSourceCount }
+}
+
 async function main() {
   fs.mkdirSync(OUT, { recursive: true })
   const executablePath = resolveChrome()
@@ -202,7 +309,14 @@ async function main() {
     errors.push('登录后学习记录为空，游客数据可能未迁移')
   }
 
+  // 知识库 RAG：新建资料库 → 上传文件 → 选库出题 → 预览显示知识库来源
+  const kbFlow = await runKbFlow(page)
+  if (kbFlow.docReady < 1 || kbFlow.kbSourceCount < 1) {
+    errors.push('知识库流程未通过：资料未就绪或预览缺少知识库来源')
+  }
+
   // 响应式：375 / 390 / 768 三档无横向溢出
+  await page.setViewportSize({ width: 390, height: 812 })
   for (const width of [375, 390, 768]) {
     await page.setViewportSize({ width, height: width === 768 ? 1024 : 812 })
     await page.waitForTimeout(350)
@@ -215,6 +329,8 @@ async function main() {
   console.log('bad responses:', badResponses.length ? badResponses.slice(0, 8) : 'none')
   console.log('console errors:', errors.length ? errors.slice(0, 8) : 'none')
   const ok =
+    kbFlow.docReady >= 1 &&
+    kbFlow.kbSourceCount >= 1 &&
     reviews === 5 &&
     detailVisible >= 1 &&
     Number.isFinite(Number(score)) &&

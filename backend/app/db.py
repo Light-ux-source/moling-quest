@@ -23,6 +23,9 @@ _initialized = False
 TABLES = [
     "auth_tokens",
     "guest_trials",
+    "kb_chunks",
+    "kb_documents",
+    "knowledge_bases",
     "reports",
     "answers",
     "questions",
@@ -66,6 +69,68 @@ SCHEMA = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     """,
     """
+    CREATE TABLE IF NOT EXISTS knowledge_bases (
+      id             VARCHAR(64) PRIMARY KEY,
+      user_id        VARCHAR(64) NULL,
+      client_id      VARCHAR(64) NOT NULL DEFAULT 'anonymous',
+      name           VARCHAR(100) NOT NULL,
+      description    VARCHAR(255) NULL,
+      status         VARCHAR(20) NOT NULL DEFAULT 'active',
+      doc_count      INT NOT NULL DEFAULT 0,
+      chunk_count    INT NOT NULL DEFAULT 0,
+      char_count     BIGINT NOT NULL DEFAULT 0,
+      embedding_model VARCHAR(100) NULL,
+      embedding_dim  INT NOT NULL DEFAULT 0,
+      created_at     VARCHAR(40) NOT NULL,
+      updated_at     VARCHAR(40) NOT NULL,
+      KEY idx_kb_user (user_id, created_at),
+      KEY idx_kb_client (client_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS kb_documents (
+      id           VARCHAR(64) PRIMARY KEY,
+      kb_id        VARCHAR(64) NOT NULL,
+      user_id      VARCHAR(64) NULL,
+      client_id    VARCHAR(64) NOT NULL DEFAULT 'anonymous',
+      kind         VARCHAR(20) NOT NULL DEFAULT 'file',
+      title        VARCHAR(255) NOT NULL,
+      source_url   VARCHAR(2048) NULL,
+      filename     VARCHAR(255) NULL,
+      mime         VARCHAR(100) NULL,
+      size_bytes   BIGINT NOT NULL DEFAULT 0,
+      content_hash CHAR(64) NULL,
+      raw_text     LONGTEXT NULL,
+      stored_path  VARCHAR(512) NULL,
+      status       VARCHAR(20) NOT NULL DEFAULT 'queued',
+      progress     INT NOT NULL DEFAULT 0,
+      error        TEXT NULL,
+      char_count   INT NOT NULL DEFAULT 0,
+      chunk_count  INT NOT NULL DEFAULT 0,
+      meta         LONGTEXT NULL,
+      created_at   VARCHAR(40) NOT NULL,
+      updated_at   VARCHAR(40) NOT NULL,
+      completed_at VARCHAR(40) NULL,
+      KEY idx_kbdoc_kb (kb_id, created_at),
+      KEY idx_kbdoc_status (status),
+      KEY idx_kbdoc_hash (kb_id, content_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS kb_chunks (
+      id         VARCHAR(64) PRIMARY KEY,
+      kb_id      VARCHAR(64) NOT NULL,
+      doc_id     VARCHAR(64) NOT NULL,
+      seq        INT NOT NULL,
+      content    LONGTEXT NOT NULL,
+      char_count INT NOT NULL DEFAULT 0,
+      locator    VARCHAR(255) NULL,
+      meta       LONGTEXT NULL,
+      created_at VARCHAR(40) NOT NULL,
+      KEY idx_kbchunk_kb (kb_id, doc_id, seq)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+    """,
+    """
     CREATE TABLE IF NOT EXISTS sessions (
       id                VARCHAR(64) PRIMARY KEY,
       user_id           VARCHAR(64) NULL,
@@ -90,6 +155,9 @@ SCHEMA = [
       error             TEXT NULL,
       knowledge_brief   LONGTEXT NULL,
       sources           LONGTEXT NULL,
+      kb_ids            LONGTEXT NULL,
+      source_mode       VARCHAR(20) NOT NULL DEFAULT 'model',
+      retrieval_trace   LONGTEXT NULL,
       model             VARCHAR(100) NULL,
       tokens_in         INT NOT NULL DEFAULT 0,
       tokens_out        INT NOT NULL DEFAULT 0,
@@ -236,6 +304,9 @@ def _migrate(conn: pymysql.connections.Connection) -> None:
     _ensure_column(conn, "sessions", "user_id", "VARCHAR(64) NULL")
     _ensure_column(conn, "sessions", "guest_trial", "TINYINT NOT NULL DEFAULT 0")
     _ensure_column(conn, "sessions", "quota_refunded", "TINYINT NOT NULL DEFAULT 0")
+    _ensure_column(conn, "sessions", "kb_ids", "LONGTEXT NULL")
+    _ensure_column(conn, "sessions", "source_mode", "VARCHAR(20) NOT NULL DEFAULT 'model'")
+    _ensure_column(conn, "sessions", "retrieval_trace", "LONGTEXT NULL")
     _ensure_column(conn, "chapters", "user_id", "VARCHAR(64) NULL")
     _ensure_column(conn, "questions", "origin_question_id", "VARCHAR(64) NULL")
     _ensure_column(conn, "users", "identity_hash", "VARCHAR(64) NULL")
@@ -500,10 +571,12 @@ def create_session(row: Dict[str, Any]) -> None:
                    (id, user_id, client_id, chapter_id, parent_chapter_id, topic, level,
                     requested_types, question_count, kind, status, stage, progress, current_seq,
                     stars, exp, accuracy, combo, guest_trial, quota_refunded,
-                    error, knowledge_brief, sources, model, tokens_in, tokens_out, cost_cny,
+                    error, knowledge_brief, sources, kb_ids, source_mode, retrieval_trace,
+                    model, tokens_in, tokens_out, cost_cny,
                     submitted_at, completed_at, created_at, updated_at)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                          0, 0, 0, 0, %s, 0, NULL, NULL, NULL, %s, 0, 0, 0, NULL, NULL, %s, %s)""",
+                          0, 0, 0, 0, %s, 0, NULL, NULL, NULL, %s, %s, NULL, %s,
+                          0, 0, 0, NULL, NULL, %s, %s)""",
                 (
                     row["id"],
                     row.get("user_id"),
@@ -520,6 +593,8 @@ def create_session(row: Dict[str, Any]) -> None:
                     row.get("progress", 0),
                     row.get("current_seq", 1),
                     1 if row.get("guest_trial") else 0,
+                    json.dumps(row.get("kb_ids", []), ensure_ascii=False),
+                    row.get("source_mode", "model") or "model",
                     row.get("model"),
                     ts,
                     ts,
@@ -533,6 +608,7 @@ def update_session(session_id: str, **fields: Any) -> None:
         "model", "tokens_in", "tokens_out", "cost_cny", "submitted_at", "completed_at",
         "user_id", "client_id", "chapter_id", "parent_chapter_id", "kind", "stars", "exp",
         "accuracy", "combo", "guest_trial", "quota_refunded",
+        "kb_ids", "source_mode", "retrieval_trace",
     }
     payload = {k: v for k, v in fields.items() if k in allowed}
     if not payload:
@@ -545,6 +621,14 @@ def update_session(session_id: str, **fields: Any) -> None:
         value = payload["sources"]
         if value is not None and not isinstance(value, str):
             payload["sources"] = json.dumps(value, ensure_ascii=False)
+    if "kb_ids" in payload:
+        value = payload["kb_ids"]
+        if value is not None and not isinstance(value, str):
+            payload["kb_ids"] = json.dumps(value, ensure_ascii=False)
+    if "retrieval_trace" in payload:
+        value = payload["retrieval_trace"]
+        if value is not None and not isinstance(value, str):
+            payload["retrieval_trace"] = json.dumps(value, ensure_ascii=False)
     for key in ("guest_trial", "quota_refunded"):
         if key in payload:
             payload[key] = 1 if payload[key] else 0
@@ -576,13 +660,15 @@ def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     data = dict(row)
     data["requested_types"] = _loads(data.get("requested_types"), [])
     data["sources"] = _loads(data.get("sources"), [])
+    data["kb_ids"] = _loads(data.get("kb_ids"), [])
+    data["retrieval_trace"] = _loads(data.get("retrieval_trace"), None)
     return data
 
 
 def _session_select_fields() -> str:
     return """id, user_id, client_id, chapter_id, parent_chapter_id, topic, level, kind,
               status, progress, current_seq, question_count, stars, exp, accuracy,
-              completed_at, created_at, guest_trial, quota_refunded"""
+              completed_at, created_at, guest_trial, quota_refunded, kb_ids, source_mode"""
 
 
 def list_recent_sessions(
@@ -685,7 +771,22 @@ def claim_guest_data(client_id: str, user_id: str) -> Dict[str, int]:
                 "UPDATE guest_trials SET claimed_user_id = %s WHERE client_id = %s",
                 (user_id, client_id),
             )
-    return {"sessions": max(0, sessions), "chapters": max(0, chapters)}
+            cur.execute(
+                "UPDATE knowledge_bases SET user_id = %s WHERE client_id = %s AND user_id IS NULL",
+                (user_id, client_id),
+            )
+            knowledge_bases = cur.rowcount
+            cur.execute(
+                "UPDATE kb_documents SET user_id = %s WHERE client_id = %s AND user_id IS NULL",
+                (user_id, client_id),
+            )
+            documents = cur.rowcount
+    return {
+        "sessions": max(0, sessions),
+        "chapters": max(0, chapters),
+        "knowledge_bases": max(0, knowledge_bases),
+        "documents": max(0, documents),
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -903,6 +1004,7 @@ def update_chapter(chapter_id: str, **fields: Any) -> None:
 def _chapter_select() -> str:
     return """SELECT c.*, s.status AS session_status, s.progress AS session_progress,
                      s.current_seq AS current_seq, s.error AS session_error,
+                     s.kb_ids AS session_kb_ids, s.source_mode AS session_source_mode,
                      s.updated_at AS session_updated_at, s.completed_at AS session_completed_at
               FROM chapters c JOIN sessions s ON s.id = c.session_id"""
 
@@ -999,3 +1101,357 @@ def delete_session_artifacts(session_id: str) -> None:
             cur.execute("DELETE FROM questions WHERE session_id = %s", (session_id,))
             cur.execute("DELETE FROM answers WHERE session_id = %s", (session_id,))
             cur.execute("DELETE FROM reports WHERE session_id = %s", (session_id,))
+
+# --------------------------------------------------------------------------- #
+# knowledge bases / documents / chunks
+# --------------------------------------------------------------------------- #
+KB_DOC_STATUSES = {"queued", "parsing", "chunking", "embedding", "ready", "failed"}
+
+
+def create_knowledge_base(row: Dict[str, Any]) -> None:
+    ts = now_iso()
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO knowledge_bases
+                   (id, user_id, client_id, name, description, status, doc_count, chunk_count,
+                    char_count, embedding_model, embedding_dim, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s, %s, %s)""",
+                (
+                    row["id"],
+                    row.get("user_id"),
+                    row.get("client_id", "anonymous") or "anonymous",
+                    row["name"],
+                    row.get("description"),
+                    row.get("status", "active"),
+                    row.get("embedding_model"),
+                    int(row.get("embedding_dim") or 0),
+                    ts,
+                    ts,
+                ),
+            )
+
+
+def get_knowledge_base(kb_id: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM knowledge_bases WHERE id = %s", (kb_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def list_knowledge_bases(
+    user_id: Optional[str], client_id: str, limit: int = 50
+) -> List[Dict[str, Any]]:
+    limit = max(1, min(limit, 100))
+    if user_id:
+        where = "WHERE user_id = %s"
+        params: List[Any] = [user_id, limit]
+    else:
+        where = "WHERE client_id = %s AND user_id IS NULL"
+        params = [client_id, limit]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT * FROM knowledge_bases {where} ORDER BY updated_at DESC LIMIT %s",
+                params,
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def count_knowledge_bases(user_id: Optional[str], client_id: str) -> int:
+    if user_id:
+        where = "user_id = %s"
+        params: List[Any] = [user_id]
+    else:
+        where = "client_id = %s AND user_id IS NULL"
+        params = [client_id]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT COUNT(*) AS n FROM knowledge_bases WHERE {where}", params)
+            row = cur.fetchone()
+    return int((row or {}).get("n") or 0)
+
+
+def update_knowledge_base(kb_id: str, **fields: Any) -> None:
+    allowed = {
+        "name",
+        "description",
+        "status",
+        "doc_count",
+        "chunk_count",
+        "char_count",
+        "embedding_model",
+        "embedding_dim",
+    }
+    payload = {key: value for key, value in fields.items() if key in allowed}
+    if not payload:
+        return
+    payload["updated_at"] = now_iso()
+    assignments = ", ".join(f"`{key}` = %s" for key in payload)
+    values = list(payload.values()) + [kb_id]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE knowledge_bases SET {assignments} WHERE id = %s", values)
+
+
+def refresh_kb_counts(kb_id: str) -> None:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) AS docs,
+                          COALESCE(SUM(CASE WHEN status = 'ready' THEN chunk_count ELSE 0 END), 0) AS chunks,
+                          COALESCE(SUM(CASE WHEN status = 'ready' THEN char_count ELSE 0 END), 0) AS chars
+                   FROM kb_documents WHERE kb_id = %s""",
+                (kb_id,),
+            )
+            row = cur.fetchone() or {}
+            cur.execute(
+                """UPDATE knowledge_bases
+                   SET doc_count = %s, chunk_count = %s, char_count = %s, updated_at = %s
+                   WHERE id = %s""",
+                (
+                    int(row.get("docs") or 0),
+                    int(row.get("chunks") or 0),
+                    int(row.get("chars") or 0),
+                    now_iso(),
+                    kb_id,
+                ),
+            )
+
+
+def delete_knowledge_base(kb_id: str) -> None:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM kb_chunks WHERE kb_id = %s", (kb_id,))
+            cur.execute("DELETE FROM kb_documents WHERE kb_id = %s", (kb_id,))
+            cur.execute("DELETE FROM knowledge_bases WHERE id = %s", (kb_id,))
+
+
+def delete_user_knowledge_bases(user_id: str) -> List[str]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM knowledge_bases WHERE user_id = %s", (user_id,))
+            ids = [row["id"] for row in cur.fetchall()]
+            for kb_id in ids:
+                cur.execute("DELETE FROM kb_chunks WHERE kb_id = %s", (kb_id,))
+                cur.execute("DELETE FROM kb_documents WHERE kb_id = %s", (kb_id,))
+            cur.execute("DELETE FROM knowledge_bases WHERE user_id = %s", (user_id,))
+    return ids
+
+
+def create_kb_document(row: Dict[str, Any]) -> None:
+    ts = now_iso()
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO kb_documents
+                   (id, kb_id, user_id, client_id, kind, title, source_url, filename, mime,
+                    size_bytes, content_hash, raw_text, stored_path, status, progress, error,
+                    char_count, chunk_count, meta, created_at, updated_at, completed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                           NULL, 0, 0, %s, %s, %s, NULL)""",
+                (
+                    row["id"],
+                    row["kb_id"],
+                    row.get("user_id"),
+                    row.get("client_id", "anonymous") or "anonymous",
+                    row.get("kind", "file"),
+                    row["title"][:255],
+                    row.get("source_url"),
+                    row.get("filename"),
+                    row.get("mime"),
+                    int(row.get("size_bytes") or 0),
+                    row.get("content_hash"),
+                    row.get("raw_text"),
+                    row.get("stored_path"),
+                    row.get("status", "queued"),
+                    int(row.get("progress") or 0),
+                    json.dumps(row.get("meta", {}), ensure_ascii=False),
+                    ts,
+                    ts,
+                ),
+            )
+
+
+def get_kb_document(doc_id: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM kb_documents WHERE id = %s", (doc_id,))
+            row = cur.fetchone()
+    if not row:
+        return None
+    data = dict(row)
+    data["meta"] = _loads(data.get("meta"), {})
+    return data
+
+
+def list_kb_documents(kb_id: str) -> List[Dict[str, Any]]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM kb_documents WHERE kb_id = %s ORDER BY created_at DESC",
+                (kb_id,),
+            )
+            rows = cur.fetchall()
+    output = []
+    for row in rows:
+        item = dict(row)
+        item["meta"] = _loads(item.get("meta"), {})
+        output.append(item)
+    return output
+
+
+def find_kb_document_by_hash(kb_id: str, content_hash: str) -> Optional[Dict[str, Any]]:
+    if not content_hash:
+        return None
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM kb_documents WHERE kb_id = %s AND content_hash = %s LIMIT 1",
+                (kb_id, content_hash),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def update_kb_document(doc_id: str, **fields: Any) -> None:
+    allowed = {
+        "title",
+        "status",
+        "progress",
+        "error",
+        "raw_text",
+        "char_count",
+        "chunk_count",
+        "meta",
+        "completed_at",
+        "stored_path",
+        "content_hash",
+        "source_url",
+        "mime",
+        "size_bytes",
+    }
+    payload = {key: value for key, value in fields.items() if key in allowed}
+    if not payload:
+        return
+    if "meta" in payload:
+        value = payload["meta"]
+        if value is not None and not isinstance(value, str):
+            payload["meta"] = json.dumps(value, ensure_ascii=False)
+    payload["updated_at"] = now_iso()
+    assignments = ", ".join(f"`{key}` = %s" for key in payload)
+    values = list(payload.values()) + [doc_id]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE kb_documents SET {assignments} WHERE id = %s", values)
+
+
+def delete_kb_document(doc_id: str) -> None:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM kb_chunks WHERE doc_id = %s", (doc_id,))
+            cur.execute("DELETE FROM kb_documents WHERE id = %s", (doc_id,))
+
+
+def replace_kb_chunks(doc_id: str, chunks: List[Dict[str, Any]]) -> None:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM kb_chunks WHERE doc_id = %s", (doc_id,))
+            if chunks:
+                cur.executemany(
+                    """INSERT INTO kb_chunks
+                       (id, kb_id, doc_id, seq, content, char_count, locator, meta, created_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    [
+                        (
+                            chunk["id"],
+                            chunk["kb_id"],
+                            doc_id,
+                            int(chunk["seq"]),
+                            chunk["content"],
+                            int(chunk.get("char_count") or len(chunk["content"])),
+                            chunk.get("locator") or "",
+                            json.dumps(chunk.get("meta") or {}, ensure_ascii=False),
+                            now_iso(),
+                        )
+                        for chunk in chunks
+                    ],
+                )
+
+
+def list_doc_chunks(doc_id: str) -> List[Dict[str, Any]]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM kb_chunks WHERE doc_id = %s ORDER BY seq ASC", (doc_id,))
+            rows = cur.fetchall()
+    output = []
+    for row in rows:
+        item = dict(row)
+        item["meta"] = _loads(item.get("meta"), {})
+        output.append(item)
+    return output
+
+
+def count_kb_chunks(kb_id: str) -> int:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM kb_chunks WHERE kb_id = %s", (kb_id,))
+            row = cur.fetchone()
+    return int((row or {}).get("n") or 0)
+
+
+def search_kb_chunks_lexical(
+    kb_ids: List[str], query: str, limit: int = 16
+) -> List[Dict[str, Any]]:
+    """向量检索不可用时的词法降级：字符二元组重叠 + 原句命中。"""
+    if not kb_ids:
+        return []
+    placeholders = ", ".join(["%s"] * len(kb_ids))
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""SELECT c.id, c.kb_id, c.doc_id, c.seq, c.content, c.locator,
+                           d.title AS doc_title
+                    FROM kb_chunks c JOIN kb_documents d ON d.id = c.doc_id
+                    WHERE c.kb_id IN ({placeholders})
+                    ORDER BY c.created_at DESC LIMIT 3000""",
+                list(kb_ids),
+            )
+            rows = cur.fetchall()
+
+    def bigrams(text: str) -> set:
+        compact = "".join(str(text or "").split()).lower()
+        if len(compact) <= 1:
+            return {compact} if compact else set()
+        return {compact[index : index + 2] for index in range(len(compact) - 1)}
+
+    query_tokens = bigrams(query)
+    if not query_tokens:
+        return []
+    scored = []
+    for row in rows:
+        tokens = bigrams(row.get("content"))
+        if not tokens:
+            continue
+        overlap = len(query_tokens & tokens)
+        if overlap <= 0:
+            continue
+        score = overlap / (len(query_tokens) ** 0.5) / (len(tokens) ** 0.5)
+        if str(query).strip() and str(query).strip() in str(row.get("content") or ""):
+            score += 0.5
+        scored.append(
+            {
+                "chunk_id": row["id"],
+                "kb_id": row["kb_id"],
+                "doc_id": row["doc_id"],
+                "seq": int(row["seq"] or 0),
+                "text": row["content"],
+                "locator": row.get("locator") or "",
+                "title": row.get("doc_title") or "未命名资料",
+                "score": round(float(score), 6),
+            }
+        )
+    scored.sort(key=lambda item: item["score"], reverse=True)
+    return scored[: max(1, int(limit))]

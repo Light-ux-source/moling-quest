@@ -197,3 +197,48 @@ def build_mock_data(task: str, context: Dict[str, Any] | None) -> Dict[str, Any]
     if builder is None:
         return {"ok": True}
     return builder(context or {})
+
+def build_rag_plan(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    topic = _topic(ctx)
+    return {
+        "queries": [
+            topic,
+            f"{topic} 核心概念 原理",
+            f"{topic} 适用场景 边界",
+        ],
+        "focus": ["定义与边界", "关键机制", "典型应用"],
+        "mock": True,
+    }
+
+
+def build_rag_evaluate(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    # Mock 模式默认认为资料足够，避免离线演示陷入多轮检索。
+    return {"sufficient": True, "missing": [], "refined_query": "", "mock": True}
+
+
+def build_rag_digest(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    data = build_digest(ctx)
+    refs = [str(ref) for ref in (ctx.get("evidence_refs") or []) if str(ref).strip()]
+    for index, point in enumerate(data.get("key_points") or []):
+        point["source_ref"] = refs[index % len(refs)] if refs else ""
+    data["mock"] = True
+    return data
+
+
+def build_rag_generate(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    data = build_generate(ctx)
+    refs = [str(ref) for ref in (ctx.get("allowed_refs") or []) if str(ref).strip()]
+    if refs:
+        for index, question in enumerate(data.get("questions") or []):
+            question["source_refs"] = [refs[index % len(refs)]]
+    return data
+
+
+BUILDERS.update(
+    {
+        "rag_plan": build_rag_plan,
+        "rag_evaluate": build_rag_evaluate,
+        "rag_digest": build_rag_digest,
+        "rag_generate": build_rag_generate,
+    }
+)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 
 os.environ.setdefault("ENV", "test")
 os.environ.setdefault("LLM_PROVIDER", "mock")
@@ -14,6 +15,12 @@ os.environ.setdefault("DAILY_QUOTA_USER", "1000")
 os.environ.setdefault("DEV_LOGIN_ENABLED", "true")
 os.environ.setdefault("WECHAT_APP_ID", "test_appid")
 os.environ.setdefault("WECHAT_APP_SECRET", "test_secret")
+# 知识库测试：强制哈希向量，避免联网；Qdrant 用临时目录，上传目录也隔离。
+os.environ.setdefault("EMBEDDING_PROVIDER", "mock")
+os.environ.setdefault("QDRANT_LOCAL_PATH", tempfile.mkdtemp(prefix="lwa_qdrant_test_"))
+os.environ.setdefault("KB_UPLOAD_DIR", tempfile.mkdtemp(prefix="lwa_kb_uploads_"))
+os.environ.setdefault("KB_CREATE_PER_HOUR", "1000")
+os.environ.setdefault("KB_UPLOAD_PER_HOUR", "1000")
 
 # MySQL 测试库：与开发库隔离；可用 MYSQL_* 环境变量覆盖。
 os.environ.setdefault("MYSQL_HOST", "127.0.0.1")

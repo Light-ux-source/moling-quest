@@ -15,6 +15,8 @@ from . import db
 from .api.routes import router
 from .config import get_settings
 from .llm import close_llm
+from .rag.embeddings import close_embeddings
+from .rag.vector_store import close_vector_store
 from .search import close_search
 from .services.auth import clear_expired_deletions
 
@@ -31,14 +33,18 @@ async def lifespan(app: FastAPI):
     db.init_db()
     clear_expired_deletions()
     Path(settings.avatar_upload_dir).mkdir(parents=True, exist_ok=True)
+    Path(settings.kb_upload_dir).mkdir(parents=True, exist_ok=True)
     logger.info(
-        "服务启动 env=%s mode=%s model=%s search=%s provider=%s db=%s wechat_login=%s dev_login=%s",
+        "服务启动 env=%s mode=%s model=%s search=%s provider=%s db=%s "
+        "embedding=%s rag=%s wechat_login=%s dev_login=%s",
         settings.env,
         settings.mode,
         settings.deepseek_model,
         settings.web_search_available,
         settings.effective_search_provider,
         settings.mysql_dsn_safe,
+        settings.effective_embedding_provider,
+        settings.rag_available,
         settings.wechat_login_configured,
         settings.dev_login_allowed,
     )
@@ -52,6 +58,8 @@ async def lifespan(app: FastAPI):
     yield
     await close_llm()
     await close_search()
+    await close_embeddings()
+    await close_vector_store()
 
 
 settings = get_settings()

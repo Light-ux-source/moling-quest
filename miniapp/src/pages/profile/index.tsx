@@ -51,6 +51,10 @@ export default function ProfilePage() {
     Taro.navigateTo({ url: '/pages/records/index' })
   }
 
+  const openKnowledgeBases = () => {
+    Taro.navigateTo({ url: '/pages/kb/index' })
+  }
+
   const openAbout = () => {
     Taro.navigateTo({ url: '/pages/about/index?type=about' })
   }
@@ -174,6 +178,13 @@ export default function ProfilePage() {
         </View>
 
         <View className='profile-menu'>
+          <View className='profile-menu-row' onClick={openKnowledgeBases}>
+            <View className='profile-menu-icon'>
+              <Icon name='tab-book-mossdeep' size={18} />
+            </View>
+            <Text className='profile-menu-label'>我的资料库</Text>
+            <Icon name='chevron-right-ink3' size={16} />
+          </View>
           <View className='profile-menu-row' onClick={openRecords}>
             <View className='profile-menu-icon'>
               <Icon name='list-paper' size={18} />
@@ -205,7 +216,7 @@ export default function ProfilePage() {
         </View>
 
         <Text className='profile-disclaimer'>
-          内容由 AI 生成，仅供学习参考 · v0.3.0
+          内容由 AI 生成，仅供学习参考 · v0.4.0
         </Text>
         <View className='profile-bottom-space' />
       </View>

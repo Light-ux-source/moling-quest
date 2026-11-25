@@ -6,6 +6,8 @@ export default {
     'pages/result/index',
     'pages/report/index',
     'pages/create/index',
+    'pages/kb/index',
+    'pages/kb-detail/index',
     'pages/generating/index',
     'pages/preview/index',
     'pages/profile/index',
